@@ -164,7 +164,7 @@ type Payload struct {
 type pubsubMessage struct {
 	Message struct {
 		Data []byte `json:"data"`
-		ID   string `json:"id"`
+		ID   string `json:"message_id"`
 	} `json:"message"`
 	Subscription string `json:"subscription"`
 }
