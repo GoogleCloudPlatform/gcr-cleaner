@@ -48,9 +48,11 @@ func main() {
 		log.Fatalf("failed to create server: %s", err)
 	}
 
+	cache := newTimerCache(30 * time.Minute)
+
 	mux := http.NewServeMux()
 	mux.Handle("/http", cleanerServer.HTTPHandler())
-	mux.Handle("/pubsub", cleanerServer.PubSubHandler())
+	mux.Handle("/pubsub", cleanerServer.PubSubHandler(cache))
 
 	server := &http.Server{
 		Addr:    addr,

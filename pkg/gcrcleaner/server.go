@@ -50,12 +50,22 @@ func NewServer(cleaner *Cleaner) (*Server, error) {
 // PubSubHandler is an http handler that invokes the cleaner from a pubsub
 // request. Unlike an HTTP request, the pubsub endpoint always returns a success
 // unless the pubsub message is malformed.
-func (s *Server) PubSubHandler() http.HandlerFunc {
+func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var m pubsubMessage
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			err = errors.Wrap(err, "failed to decode pubsub message")
 			s.handleError(w, err, 400)
+			return
+		}
+
+		// PubSub is "at least once" delivery. The cleaner is idempotent, but
+		// let's try to prevent unnecessary work by not processing messages we've
+		// already received.
+		msgID := m.Subscription + "/" + m.Message.ID
+		if exists := cache.Insert(msgID); exists {
+			log.Printf("already processed message %s", msgID)
+			w.WriteHeader(204)
 			return
 		}
 
