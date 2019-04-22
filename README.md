@@ -211,4 +211,4 @@ This library is licensed under Apache 2.0. Full license text is available in
 [cloud-shell]: https://cloud.google.com/shell
 [cloud-sdk]: https://cloud.google.com/sdk
 [gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
-[gcr-cleaner-godoc]: https://godoc.org/github.com/sethvargo/gcr-cleaner
+[gcr-cleaner-godoc]: https://godoc.org/github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner
