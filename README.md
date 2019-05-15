@@ -1,19 +1,16 @@
 # GCR Cleaner
 
-[![GoDoc](https://godoc.org/github.com/sethvargo/gcr-cleaner?status.svg)][gcr-cleaner-godoc]
-
 GCR Cleaner deletes untagged images in Google Container Registry. This can help
 reduce costs and keep your container images list in order.
 
-GCR Cleaner is available as a Go library (in `pkg/gcrcleaner`), but it is
-designed to be deployed as a [Cloud Run][cloud-run] service and invoked
-periodically via [Cloud Scheduler][cloud-scheduler] via [Cloud
+GCR Cleaner is designed to be deployed as a [Cloud Run][cloud-run] service and
+invoked periodically via [Cloud Scheduler][cloud-scheduler] via [Cloud
 Pub/Sub][cloud-pubsub].
 
 ```text
-+-------------------+    +-----------------+    +-------------+    +-------+
-|  Cloud Scheduler  | -> |  Cloud Pub/Sub  | -> |  Cloud Run  | -> |  GCR  |
-+-------------------+    +-----------------+    +-------------+    +-------+
++-------------------+    +-------------+    +-------+
+|  Cloud Scheduler  | -> |  Cloud Run  | -> |  GCR  |
++-------------------+    +-------------+    +-------+
 ```
 
 GCR Cleaner is largely inspired by [ahmetb](https://twitter.com/ahmetb)'s
@@ -41,51 +38,39 @@ service.
     ```text
     gcloud services enable --project ${PROJECT_ID} \
       appengine.googleapis.com \
-      compute.googleapis.com \
-      cloudbuild.googleapis.com \
       cloudscheduler.googleapis.com \
-      pubsub.googleapis.com \
       run.googleapis.com
     ```
 
     This operation can take a few minutes, especially for recently-created
     projects.
 
-1. Build the `gcr-cleaner` container with Cloud Build:
+1. Create a service account which will be assigned to the Cloud Run service:
 
     ```text
-    gcloud builds submit \
+    gcloud iam service-accounts create gcr-cleaner \
       --project ${PROJECT_ID} \
-      --tag gcr.io/${PROJECT_ID}/gcr-cleaner \
-      .
+      --display-name "gcr-cleaner"
     ```
 
-1. Deploy the `gcr-cleaner` container on Cloud Run:
+1. Deploy the `gcr-cleaner` container on Cloud Run running as the service
+   account just created:
 
     ```text
-    gcloud beta run deploy gcr-cleaner \
+    gcloud alpha run deploy gcr-cleaner \
       --project ${PROJECT_ID} \
-      --image gcr.io/${PROJECT_ID}/gcr-cleaner \
+      --service-account "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
+      --image gcr.io/gcr-cleaner/gcr-cleaner \
       --region us-central1 \
       --timeout 60s \
       --quiet
     ```
 
-1. Capture the URL of the Cloud Run service:
+1. Grant the service account access to delete references in Google Container
+   Registry:
 
     ```text
-    SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project ${PROJECT_ID} --region us-central1 --format 'value(status.domain)')
-    ```
-
-1. Grant the Cloud Run service account access to delete references in Google
-   Container Registry:
-
-    ```text
-    PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format 'value(projectNumber)')
-    ```
-
-    ```text
-    gsutil acl ch -u ${PROJECT_NUMBER}-compute@developer.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
+    gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
     ```
 
     To cleanup refs in _other_ GCP projects, replace `PROJECT_ID` with the
@@ -94,45 +79,23 @@ service.
     "gcr.io/project-b/image", you would need to grant the Cloud Run service
     account in project-a permission on `artifacts.projects-b.appspot.com`.
 
-1. Grant Cloud Pub/Sub the ability to invoke the Cloud Run function:
+1. Create a service account with permission to invoke the Cloud Run service:
 
     ```text
-    gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-      --member serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com \
-      --role roles/iam.serviceAccountTokenCreator
-    ```
-
-    ```text
-    gcloud iam service-accounts create cloud-run-pubsub-invoker \
+    gcloud iam service-accounts create gcr-cleaner-invoker \
       --project ${PROJECT_ID} \
-      --display-name "Cloud Run Pub/Sub Invoker"
+      --display-name "gcr-cleaner-invoker"
     ```
 
     ```text
     gcloud beta run services add-iam-policy-binding gcr-cleaner \
       --project ${PROJECT_ID} \
-      --member serviceAccount:cloud-run-pubsub-invoker@${PROJECT_ID}.iam.gserviceaccount.com \
+      --region us-central1 \
+      --member serviceAccount:gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com \
       --role roles/run.invoker
     ```
 
-1. Create a Cloud Pub/Sub topic and subscription with a service account that has
-   permission to invoke Cloud Run:
-
-    ```text
-    gcloud pubsub topics create gcr-cleaner \
-      --project ${PROJECT_ID}
-    ```
-
-    ```text
-    gcloud beta pubsub subscriptions create cloud-run-gcr-cleaner \
-      --project ${PROJECT_ID} \
-      --topic gcr-cleaner \
-      --message-retention-duration 15m \
-      --push-endpoint ${SERVICE_URL}/pubsub \
-      --push-auth-service-account cloud-run-pubsub-invoker@${PROJECT_ID}.iam.gserviceaccount.com
-    ```
-
-1. Create a Cloud Scheduler Pub/Sub job to invoke the function every day:
+1. Create a Cloud Scheduler HTTP job to invoke the function every day:
 
     ```text
     gcloud app create \
@@ -148,16 +111,22 @@ service.
     ```
 
     ```text
-    gcloud beta scheduler jobs create pubsub gcrclean-myimage \
+    # Capture the URL of the Cloud Run service:
+    SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project ${PROJECT_ID} --region us-central1 --format 'value(status.domain)')
+    ```
+
+    ```text
+    gcloud beta scheduler jobs create http gcrclean-myimage \
       --project ${PROJECT_ID} \
       --description "Cleanup ${REPO}" \
-      --topic gcr-cleaner \
+      --uri "${SERVICE_URL}/http" \
       --message-body "{\"repo\":\"${REPO}\"}" \
+      --oidc-service-account-email gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com \
       --schedule "every monday 09:00"
     ```
 
-    You can create multiple Cloud Scheduler instances against the same Cloud
-    Pub/Sub topic with different payloads to clean multiple GCR repositories.
+    You can create multiple Cloud Scheduler instances against the same Cloud Run
+    service with different payloads to clean multiple GCR repositories.
 
 1. _(Optional)_ Run the scheduled job now:
 
@@ -190,14 +159,9 @@ The payload is expected to be JSON with the following fields:
 To clean multiple repos, create a Cloud Scheduler job for each repo, altering
 the payload to use the correct repo.
 
-**Why are you using Cloud Pub/Sub?**
+**Does it work with Cloud Pub/Sub?**
 <br>
-At the time of this writing, Cloud Scheduler does not send authentication
-information to Cloud Run. As such, it is not possible for Cloud Scheduler to
-invoke a private Cloud Run function. This is a known issue and, when resolved,
-can be updated to drop Cloud Pub/Sub from the process. The server is already
-configurable to do this, since it serves both a `/pubsub` and `/http` endpoint.
-
+Yes! Just change the endpoint from `/http` to `/pubsub`!
 
 ## License
 
