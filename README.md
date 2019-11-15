@@ -27,16 +27,16 @@ service.
 1. Export your project ID as an environment variable. The rest of this setup
    assumes this environment variable is set.
 
-   ```text
-   PROJECT_ID=my-project
+   ```sh
+   export PROJECT_ID=my-project
    ```
 
    Note this is your project _ID_, not the project _number_ or _name_.
 
 1. Enable the Google APIs - this only needs to be done once per project:
 
-    ```text
-    gcloud services enable --project ${PROJECT_ID} \
+    ```sh
+    gcloud services enable --project "${PROJECT_ID}" \
       appengine.googleapis.com \
       cloudscheduler.googleapis.com \
       run.googleapis.com
@@ -47,29 +47,30 @@ service.
 
 1. Create a service account which will be assigned to the Cloud Run service:
 
-    ```text
+    ```sh
     gcloud iam service-accounts create gcr-cleaner \
-      --project ${PROJECT_ID} \
+      --project "${PROJECT_ID}" \
       --display-name "gcr-cleaner"
     ```
 
 1. Deploy the `gcr-cleaner` container on Cloud Run running as the service
    account just created:
 
-    ```text
+    ```sh
     gcloud alpha run deploy gcr-cleaner \
       --project ${PROJECT_ID} \
+      --platform "managed" \
       --service-account "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --image gcr.io/gcr-cleaner/gcr-cleaner \
-      --region us-central1 \
-      --timeout 60s \
+      --image "gcr.io/gcr-cleaner/gcr-cleaner" \
+      --region "us-central1" \
+      --timeout "60s" \
       --quiet
     ```
 
 1. Grant the service account access to delete references in Google Container
    Registry:
 
-    ```text
+    ```sh
     gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
     ```
 
@@ -81,47 +82,48 @@ service.
 
 1. Create a service account with permission to invoke the Cloud Run service:
 
-    ```text
+    ```sh
     gcloud iam service-accounts create gcr-cleaner-invoker \
-      --project ${PROJECT_ID} \
+      --project "${PROJECT_ID}" \
       --display-name "gcr-cleaner-invoker"
     ```
 
-    ```text
+    ```sh
     gcloud beta run services add-iam-policy-binding gcr-cleaner \
-      --project ${PROJECT_ID} \
-      --region us-central1 \
-      --member serviceAccount:gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com \
-      --role roles/run.invoker
+      --project "${PROJECT_ID}" \
+      --platform "managed" \
+      --region "us-central1" \
+      --member "serviceAccount:gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
+      --role "roles/run.invoker"
     ```
 
 1. Create a Cloud Scheduler HTTP job to invoke the function every day:
 
-    ```text
+    ```sh
     gcloud app create \
-      --project ${PROJECT_ID} \
-      --region us-central \
+      --project "${PROJECT_ID}" \
+      --region "us-central" \
       --quiet
     ```
 
-    ```text
+    ```sh
     # Replace this with the full name of the repository for which you
     # want to cleanup old references.
-    REPO="gcr.io/my-project/my-image"
+    export REPO="gcr.io/my-project/my-image"
     ```
 
-    ```text
+    ```sh
     # Capture the URL of the Cloud Run service:
-    SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project ${PROJECT_ID} --region us-central1 --format 'value(status.domain)')
+    export SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.domain)')
     ```
 
-    ```text
+    ```sh
     gcloud beta scheduler jobs create http gcrclean-myimage \
       --project ${PROJECT_ID} \
       --description "Cleanup ${REPO}" \
       --uri "${SERVICE_URL}/http" \
       --message-body "{\"repo\":\"${REPO}\"}" \
-      --oidc-service-account-email gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com \
+      --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
       --schedule "every monday 09:00"
     ```
 
@@ -130,7 +132,7 @@ service.
 
 1. _(Optional)_ Run the scheduled job now:
 
-    ```text
+    ```sh
     gcloud beta scheduler jobs run gcrclean-myimage \
       --project ${PROJECT_ID}
     ```
