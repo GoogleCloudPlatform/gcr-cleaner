@@ -114,7 +114,7 @@ service.
 
     ```sh
     # Capture the URL of the Cloud Run service:
-    export SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.domain)')
+    export SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.url)')
     ```
 
     ```sh
