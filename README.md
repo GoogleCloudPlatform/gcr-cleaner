@@ -4,8 +4,7 @@ GCR Cleaner deletes untagged images in Google Container Registry. This can help
 reduce costs and keep your container images list in order.
 
 GCR Cleaner is designed to be deployed as a [Cloud Run][cloud-run] service and
-invoked periodically via [Cloud Scheduler][cloud-scheduler] via [Cloud
-Pub/Sub][cloud-pubsub].
+invoked periodically via [Cloud Scheduler][cloud-scheduler].
 
 ```text
 +-------------------+    +-------------+    +-------+
@@ -68,7 +67,7 @@ service.
     ```
 
 1. Grant the service account access to delete references in Google Container
-   Registry:
+   Registry (which stores container image laters in a Cloud Storage bucket):
 
     ```sh
     gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
@@ -109,7 +108,7 @@ service.
     ```sh
     # Replace this with the full name of the repository for which you
     # want to cleanup old references.
-    export REPO="gcr.io/my-project/my-image"
+    export REPO="gcr.io/${PROJECT_ID}/my-image"
     ```
 
     ```sh
