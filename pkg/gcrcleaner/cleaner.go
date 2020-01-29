@@ -44,7 +44,7 @@ func NewCleaner(p TokenProvider, c int) (*Cleaner, error) {
 }
 
 // Clean deletes old images from GCR that are untagged and older than "since".
-func (c *Cleaner) Clean(repo string, since time.Time) ([]string, error) {
+func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get repo %s", repo)
@@ -64,7 +64,7 @@ func (c *Cleaner) Clean(repo string, since time.Time) ([]string, error) {
 	var errsLock sync.RWMutex
 
 	for k, m := range tags.Manifests {
-		if c.shouldDelete(m, since) {
+		if c.shouldDelete(m, since, allow_tagged) {
 			ref := repo + "@" + k
 			pool.Submit(func() {
 				// Do not process if previous invocations failed. This prevents a large
@@ -132,6 +132,6 @@ func (c *Cleaner) deleteOne(ref string) error {
 
 // shouldDelete returns true if the manifest has no tags and is before the
 // requested time.
-func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time) bool {
-	return len(m.Tags) == 0 && m.Uploaded.UTC().Before(since)
+func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allow_tag bool) bool {
+	return (allow_tag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
 }
