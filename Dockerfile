@@ -14,6 +14,8 @@
 
 FROM golang:1.13 AS builder
 
+RUN apt-get -qq update && apt-get -yqq install upx
+
 ENV GO111MODULE=on \
   CGO_ENABLED=0 \
   GOOS=linux \
@@ -21,21 +23,26 @@ ENV GO111MODULE=on \
 
 WORKDIR /src
 
-COPY . ./
+COPY . .
 RUN go build \
   -a \
-  -ldflags "-s -w -extldflags 'static'" \
+  -trimpath \
+  -ldflags "-s -w -extldflags '-static'" \
   -installsuffix cgo \
   -tags netgo \
   -mod vendor \
   -o /bin/gcrcleaner \
   .
 
+RUN strip /bin/gcrcleaner
+
+RUN upx -q -9 /bin/gcrcleaner
 
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates && \
-  update-ca-certificates
+
+
+FROM scratch
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /bin/gcrcleaner /bin/gcrcleaner
 
 ENV PORT 8080
