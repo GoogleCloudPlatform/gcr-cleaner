@@ -27,7 +27,7 @@ service.
    assumes this environment variable is set.
 
    ```sh
-   export PROJECT_ID=my-project
+   export PROJECT_ID="my-project"
    ```
 
    Note this is your project _ID_, not the project _number_ or _name_.
@@ -47,7 +47,7 @@ service.
 1. Create a service account which will be assigned to the Cloud Run service:
 
     ```sh
-    gcloud iam service-accounts create gcr-cleaner \
+    gcloud iam service-accounts create "gcr-cleaner" \
       --project "${PROJECT_ID}" \
       --display-name "gcr-cleaner"
     ```
@@ -56,14 +56,14 @@ service.
    account just created:
 
     ```sh
-    gcloud alpha run deploy gcr-cleaner \
+    gcloud --quiet run deploy "gcr-cleaner" \
+      --async \
       --project ${PROJECT_ID} \
       --platform "managed" \
       --service-account "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
       --image "gcr.io/gcr-cleaner/gcr-cleaner" \
       --region "us-central1" \
-      --timeout "60s" \
-      --quiet
+      --timeout "60s"
     ```
 
 1. Grant the service account access to delete references in Google Container
@@ -82,13 +82,13 @@ service.
 1. Create a service account with permission to invoke the Cloud Run service:
 
     ```sh
-    gcloud iam service-accounts create gcr-cleaner-invoker \
+    gcloud iam service-accounts create "gcr-cleaner-invoker" \
       --project "${PROJECT_ID}" \
       --display-name "gcr-cleaner-invoker"
     ```
 
     ```sh
-    gcloud beta run services add-iam-policy-binding gcr-cleaner \
+    gcloud run services add-iam-policy-binding "gcr-cleaner" \
       --project "${PROJECT_ID}" \
       --platform "managed" \
       --region "us-central1" \
@@ -96,7 +96,7 @@ service.
       --role "roles/run.invoker"
     ```
 
-1. Create a Cloud Scheduler HTTP job to invoke the function every day:
+1. Create a Cloud Scheduler HTTP job to invoke the function every week:
 
     ```sh
     gcloud app create \
@@ -113,11 +113,11 @@ service.
 
     ```sh
     # Capture the URL of the Cloud Run service:
-    export SERVICE_URL=$(gcloud beta run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.url)')
+    export SERVICE_URL=$(gcloud run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.url)')
     ```
 
     ```sh
-    gcloud beta scheduler jobs create http gcrclean-myimage \
+    gcloud scheduler jobs create http "gcrclean-myimage" \
       --project ${PROJECT_ID} \
       --description "Cleanup ${REPO}" \
       --uri "${SERVICE_URL}/http" \
@@ -132,8 +132,8 @@ service.
 1. _(Optional)_ Run the scheduled job now:
 
     ```sh
-    gcloud beta scheduler jobs run gcrclean-myimage \
-      --project ${PROJECT_ID}
+    gcloud scheduler jobs run "gcrclean-myimage" \
+      --project "${PROJECT_ID}"
     ```
 
     Note: for initial job deployments, you must wait a few minutes before
