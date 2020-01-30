@@ -16,6 +16,8 @@ package gcrcleaner
 
 import (
 	"net/http"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -47,12 +49,12 @@ func NewCleaner(p TokenProvider, c int) (*Cleaner, error) {
 func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get repo %s", repo)
+		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
 	}
 
 	tags, err := gcrgoogle.List(gcrrepo, gcrgoogle.WithAuth(c.auther))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list tags for repo %s", repo)
+		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
 	}
 
 	// Create a worker pool for parallel deletion
@@ -82,7 +84,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]stri
 				errsLock.RUnlock()
 
 				if err := c.deleteOne(ref); err != nil {
-					cause := errors.Cause(err).Error()
+					cause := errors.Unwrap(err).Error()
 
 					errsLock.Lock()
 					if _, ok := errs[cause]; !ok {
@@ -111,10 +113,10 @@ func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]stri
 		}
 
 		if len(errStrings) == 1 {
-			return nil, errors.New(errStrings[0])
+			return nil, fmt.Errorf(errStrings[0])
 		}
 
-		return nil, errors.Errorf("%d errors occurred: %s",
+		return nil, fmt.Errorf("%d errors occurred: %s",
 			len(errStrings), strings.Join(errStrings, ", "))
 	}
 
@@ -125,11 +127,11 @@ func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]stri
 func (c *Cleaner) deleteOne(ref string) error {
 	name, err := gcrname.ParseReference(ref)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse reference %s", ref)
+		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
 	}
 
 	if err := gcrremote.Delete(name, c.auther, http.DefaultTransport); err != nil {
-		return errors.Wrapf(err, "failed to delete %s", name)
+		return fmt.Errorf("failed to delete %s: %w", name, err)
 	}
 
 	return nil

@@ -17,13 +17,12 @@ package gcrcleaner
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -39,7 +38,7 @@ type Server struct {
 // NewServer creates a new server for handler functions.
 func NewServer(cleaner *Cleaner) (*Server, error) {
 	if cleaner == nil {
-		return nil, errors.New("missing cleaner")
+		return nil, fmt.Errorf("missing cleaner")
 	}
 
 	return &Server{
@@ -54,7 +53,7 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var m pubsubMessage
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
-			err = errors.Wrap(err, "failed to decode pubsub message")
+			err = fmt.Errorf("failed to decode pubsub message: %w", err)
 			s.handleError(w, err, 400)
 			return
 		}
@@ -70,7 +69,7 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 		}
 
 		if len(m.Message.Data) == 0 {
-			err := errors.New("missing data in pubsub payload")
+			err := fmt.Errorf("missing data in pubsub payload")
 			s.handleError(w, err, 400)
 			return
 		}
@@ -102,7 +101,7 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 			Refs:  deleted,
 		})
 		if err != nil {
-			err = errors.Wrap(err, "failed to marshal JSON errors")
+			err = fmt.Errorf("failed to marshal JSON errors: %w", err)
 			s.handleError(w, err, 500)
 			return
 		}
@@ -117,7 +116,7 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	var p Payload
 	if err := json.NewDecoder(r).Decode(&p); err != nil {
-		return nil, 500, errors.Wrap(err, "failed to decode payload as JSON")
+		return nil, 500, fmt.Errorf("failed to decode payload as JSON: %w", err)
 	}
 
 	repo := p.Repo
@@ -128,7 +127,7 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 
 	deleted, err := s.cleaner.Clean(repo, since, allow_tagged)
 	if err != nil {
-		return nil, 400, errors.Wrap(err, "failed to clean")
+		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
 
 	log.Printf("deleted %d refs for %s", len(deleted), repo)
@@ -142,7 +141,7 @@ func (s *Server) handleError(w http.ResponseWriter, err error, status int) {
 
 	b, err := json.Marshal(&errorResp{Error: err.Error()})
 	if err != nil {
-		err = errors.Wrap(err, "failed to marshal JSON errors")
+		err = fmt.Errorf("failed to marshal JSON errors: %w", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
