@@ -23,6 +23,8 @@ import (
 	"runtime"
 	"time"
 
+	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
+	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner"
 )
 
@@ -36,9 +38,19 @@ func main() {
 	}
 	addr := "0.0.0.0:" + port
 
-	tokenProvider := gcrcleaner.TokenProviderMetadataServer()
+	var auther gcrauthn.Authenticator
+	if token := os.Getenv("GCRCLEANER_TOKEN"); token != "" {
+		auther = &gcrauthn.Bearer{Token: token}
+	} else {
+		var err error
+		auther, err = gcrgoogle.NewEnvAuthenticator()
+		if err != nil {
+			log.Fatalf("failed to setup auther: %s", err)
+		}
+	}
+
 	concurrency := runtime.NumCPU()
-	cleaner, err := gcrcleaner.NewCleaner(tokenProvider, concurrency)
+	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
 	if err != nil {
 		log.Fatalf("failed to create cleaner: %s", err)
 	}

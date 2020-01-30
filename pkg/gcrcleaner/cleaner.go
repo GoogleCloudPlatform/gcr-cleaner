@@ -15,7 +15,6 @@
 package gcrcleaner
 
 import (
-	"net/http"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +26,6 @@ import (
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pkg/errors"
 )
 
 // Cleaner is a gcr cleaner.
@@ -38,9 +36,9 @@ type Cleaner struct {
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
-func NewCleaner(p TokenProvider, c int) (*Cleaner, error) {
+func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 	return &Cleaner{
-		auther:      bearerAuthenticator(p),
+		auther:      auther,
 		concurrency: c,
 	}, nil
 }
@@ -130,7 +128,7 @@ func (c *Cleaner) deleteOne(ref string) error {
 		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
 	}
 
-	if err := gcrremote.Delete(name, c.auther, http.DefaultTransport); err != nil {
+	if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", name, err)
 	}
 
