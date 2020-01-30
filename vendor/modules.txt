@@ -1,42 +1,55 @@
-# cloud.google.com/go v0.37.4
+# cloud.google.com/go v0.52.0
 cloud.google.com/go/compute/metadata
-# github.com/gammazero/deque v0.0.0-20190130191400-2afb3858e9c7
+# github.com/docker/cli v0.0.0-20200130152716-5d0cf8839492
+github.com/docker/cli/cli/config
+github.com/docker/cli/cli/config/configfile
+github.com/docker/cli/cli/config/credentials
+github.com/docker/cli/cli/config/types
+# github.com/docker/docker v1.4.2-0.20190924003213-a8608b5b67c7
+github.com/docker/docker/pkg/homedir
+# github.com/docker/docker-credential-helpers v0.6.3
+github.com/docker/docker-credential-helpers/client
+github.com/docker/docker-credential-helpers/credentials
+# github.com/gammazero/deque v0.0.0-20200124200322-7e84b94275b8
 github.com/gammazero/deque
-# github.com/gammazero/workerpool v0.0.0-20190406235159-88d534f22b56
+# github.com/gammazero/workerpool v0.0.0-20200124200352-1f57f023f98d
 github.com/gammazero/workerpool
-# github.com/golang/protobuf v1.3.1
+# github.com/golang/protobuf v1.3.3
 github.com/golang/protobuf/proto
-# github.com/google/go-containerregistry v0.0.0-20190412005658-1d38b9cfdb9d
+# github.com/google/go-containerregistry v0.0.0-20200128171736-43a8003f9213
 github.com/google/go-containerregistry/pkg/authn
+github.com/google/go-containerregistry/pkg/internal/retry
+github.com/google/go-containerregistry/pkg/internal/retry/wait
+github.com/google/go-containerregistry/pkg/logs
 github.com/google/go-containerregistry/pkg/name
+github.com/google/go-containerregistry/pkg/v1
 github.com/google/go-containerregistry/pkg/v1/google
+github.com/google/go-containerregistry/pkg/v1/partial
 github.com/google/go-containerregistry/pkg/v1/remote
 github.com/google/go-containerregistry/pkg/v1/remote/transport
-github.com/google/go-containerregistry/pkg/v1
-github.com/google/go-containerregistry/pkg/v1/partial
 github.com/google/go-containerregistry/pkg/v1/types
 github.com/google/go-containerregistry/pkg/v1/v1util
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.1
 github.com/pkg/errors
-# golang.org/x/net v0.0.0-20190419010253-1f3472d942ba
-golang.org/x/net/context/ctxhttp
+# golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
 golang.org/x/net/context
-# golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a
+golang.org/x/net/context/ctxhttp
+# golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 golang.org/x/oauth2
 golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20190412183630-56d357773e84
+# golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/errgroup
-# google.golang.org/appengine v1.5.0
+# google.golang.org/appengine v1.6.5
 google.golang.org/appengine
-google.golang.org/appengine/urlfetch
 google.golang.org/appengine/internal
 google.golang.org/appengine/internal/app_identity
-google.golang.org/appengine/internal/modules
-google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/internal/base
 google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
+google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
+google.golang.org/appengine/internal/urlfetch
+google.golang.org/appengine/urlfetch
