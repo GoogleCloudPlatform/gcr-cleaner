@@ -65,6 +65,11 @@ func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]stri
 
 	for k, m := range tags.Manifests {
 		if c.shouldDelete(m, since, allow_tagged) {
+			// Deletes all tags before deleting the image
+			for _, tag := range m.Tags {
+				tagged := repo + ":" + tag
+				c.deleteOne(tagged)
+			}
 			ref := repo + "@" + k
 			pool.Submit(func() {
 				// Do not process if previous invocations failed. This prevents a large
