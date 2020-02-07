@@ -122,10 +122,11 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 
 	repo := p.Repo
 	since := time.Now().UTC().Add(p.Grace)
+	allow_tagged := p.AllowTagged
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since)
+	deleted, err := s.cleaner.Clean(repo, since, allow_tagged)
 	if err != nil {
 		return nil, 400, errors.Wrap(err, "failed to clean")
 	}
@@ -159,6 +160,10 @@ type Payload struct {
 	// Grace is a time.Duration value indicating how much grade period should be
 	// given to new, untagged layers. The default is no grace.
 	Grace time.Duration `json:"grace"`
+
+	// AllowTagged is a Boolean value determine if tagged images are allowed
+	// to be deleted.
+	AllowTagged bool `json:"allow_tagged"`
 }
 
 type pubsubMessage struct {

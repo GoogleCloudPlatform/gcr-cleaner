@@ -152,6 +152,9 @@ The payload is expected to be JSON with the following fields:
   the duration will not be deleted. If unspecified, the default is no grace
   period (all untagged image refs are deleted).
 
+- `allow_tagged` - If set to true, will check all images includding tagged.
+  If unspecified, the default will only delete untagged images.
+
 
 ## FAQ
 
