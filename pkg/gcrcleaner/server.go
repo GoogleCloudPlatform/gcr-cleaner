@@ -120,7 +120,7 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	}
 
 	repo := p.Repo
-	since := time.Now().UTC().Add(p.Grace)
+	since := time.Now().UTC().Add(time.Duration(p.Grace))
 	allow_tagged := p.AllowTagged
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
@@ -158,7 +158,7 @@ type Payload struct {
 
 	// Grace is a time.Duration value indicating how much grade period should be
 	// given to new, untagged layers. The default is no grace.
-	Grace time.Duration `json:"grace"`
+	Grace duration `json:"grace"`
 
 	// AllowTagged is a Boolean value determine if tagged images are allowed
 	// to be deleted.
@@ -180,4 +180,32 @@ type cleanResp struct {
 
 type errorResp struct {
 	Error string `json:"error"`
+}
+
+type duration time.Duration
+
+func (d duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+func (d *duration) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+
+	switch val := v.(type) {
+	case float64:
+		*d = duration(time.Duration(val))
+		return nil
+	case string:
+		s, err := time.ParseDuration(val)
+		if err != nil {
+			return nil
+		}
+		*d = duration(s)
+		return nil
+	default:
+		return fmt.Errorf("invalid duration type %T", val)
+	}
 }
