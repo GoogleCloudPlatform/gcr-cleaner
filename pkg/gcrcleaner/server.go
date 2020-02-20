@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 )
 
@@ -114,7 +115,9 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 
 // clean reads the given body as JSON and starts a cleaner instance.
 func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
-	var p Payload
+	var p  = Payload{
+		TagsToKeep: "$^",
+	}
 	if err := json.NewDecoder(r).Decode(&p); err != nil {
 		return nil, 500, fmt.Errorf("failed to decode payload as JSON: %w", err)
 	}
@@ -122,10 +125,15 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	repo := p.Repo
 	since := time.Now().UTC().Add(time.Duration(p.Grace))
 	allow_tagged := p.AllowTagged
+	regex, err := regexp.Compile(p.TagsToKeep)
+	if err != nil {
+		return nil, 400, fmt.Errorf("invalid value for 'tags_to_keep': %w", err)
+	}
+
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allow_tagged)
+	deleted, err := s.cleaner.Clean(repo, since, allow_tagged, *regex)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -163,6 +171,8 @@ type Payload struct {
 	// AllowTagged is a Boolean value determine if tagged images are allowed
 	// to be deleted.
 	AllowTagged bool `json:"allow_tagged"`
+
+	TagsToKeep string `json:"tags_to_keep"`
 }
 
 type pubsubMessage struct {

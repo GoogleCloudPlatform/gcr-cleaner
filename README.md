@@ -155,6 +155,8 @@ The payload is expected to be JSON with the following fields:
 - `allow_tagged` - If set to true, will check all images includding tagged.
   If unspecified, the default will only delete untagged images.
 
+- `tags_to_keep` - If `allow_tagged` is set to true, images tagged with tags 
+  matching this regular expressions will not be deleted. 
 
 ## FAQ
 
