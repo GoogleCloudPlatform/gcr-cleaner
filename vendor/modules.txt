@@ -1,6 +1,8 @@
-# cloud.google.com/go v0.52.0
+# cloud.google.com/go v0.55.0
+## explicit
 cloud.google.com/go/compute/metadata
-# github.com/docker/cli v0.0.0-20200130152716-5d0cf8839492
+# github.com/docker/cli v0.0.0-20200320120634-22acbbcc4b3f
+## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
 github.com/docker/cli/cli/config/credentials
@@ -10,13 +12,16 @@ github.com/docker/docker/pkg/homedir
 # github.com/docker/docker-credential-helpers v0.6.3
 github.com/docker/docker-credential-helpers/client
 github.com/docker/docker-credential-helpers/credentials
-# github.com/gammazero/deque v0.0.0-20200124200322-7e84b94275b8
+# github.com/gammazero/deque v0.0.0-20200310222745-50fa758af896
+## explicit
 github.com/gammazero/deque
-# github.com/gammazero/workerpool v0.0.0-20200124200352-1f57f023f98d
+# github.com/gammazero/workerpool v0.0.0-20200311205957-7b00833861c6
+## explicit
 github.com/gammazero/workerpool
-# github.com/golang/protobuf v1.3.3
+# github.com/golang/protobuf v1.3.5
 github.com/golang/protobuf/proto
-# github.com/google/go-containerregistry v0.0.0-20200128171736-43a8003f9213
+# github.com/google/go-containerregistry v0.0.0-20200320200342-35f57d7d4930
+## explicit
 github.com/google/go-containerregistry/pkg/authn
 github.com/google/go-containerregistry/pkg/internal/retry
 github.com/google/go-containerregistry/pkg/internal/retry/wait
@@ -30,8 +35,10 @@ github.com/google/go-containerregistry/pkg/v1/remote/transport
 github.com/google/go-containerregistry/pkg/v1/types
 github.com/google/go-containerregistry/pkg/v1/v1util
 # github.com/pkg/errors v0.9.1
+## explicit
 github.com/pkg/errors
-# golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
+# golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 # golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
@@ -40,7 +47,7 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+# golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 golang.org/x/sync/errgroup
 # google.golang.org/appengine v1.6.5
 google.golang.org/appengine
