@@ -120,6 +120,14 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	}
 
 	repo := p.Repo
+
+	// Convert duration to a negative value, since we're about to "add" it to the
+	// since time.
+	sub := time.Duration(p.Grace)
+	if p.Grace > 0 {
+		sub = sub * -1
+	}
+
 	since := time.Now().UTC().Add(time.Duration(p.Grace))
 	allow_tagged := p.AllowTagged
 
