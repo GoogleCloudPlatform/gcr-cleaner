@@ -44,7 +44,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 }
 
 // Clean deletes old images from GCR that are untagged and older than "since".
-func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]string, error) {
+func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -64,7 +64,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allow_tagged bool) ([]stri
 	var errsLock sync.RWMutex
 
 	for k, m := range tags.Manifests {
-		if c.shouldDelete(m, since, allow_tagged) {
+		if c.shouldDelete(m, since, allowTagged) {
 			// Deletes all tags before deleting the image
 			for _, tag := range m.Tags {
 				tagged := repo + ":" + tag
@@ -137,6 +137,6 @@ func (c *Cleaner) deleteOne(ref string) error {
 
 // shouldDelete returns true if the manifest has no tags and is before the
 // requested time.
-func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allow_tag bool) bool {
-	return (allow_tag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
+func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool) bool {
+	return (allowTag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
 }
