@@ -130,10 +130,11 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 
 	since := time.Now().UTC().Add(sub)
 	allowTagged := p.AllowTagged
+	keep := p.Keep
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -171,6 +172,9 @@ type Payload struct {
 	// AllowTagged is a Boolean value determine if tagged images are allowed
 	// to be deleted.
 	AllowTagged bool `json:"allow_tagged"`
+
+	// Keep is an Integer if the number of images to keep at minimum in the repo
+	Keep int `json:"keep"`
 }
 
 type pubsubMessage struct {

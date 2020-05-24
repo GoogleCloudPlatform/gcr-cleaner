@@ -17,6 +17,7 @@ package gcrcleaner
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -43,8 +44,9 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 	}, nil
 }
 
-// Clean deletes old images from GCR that are untagged and older than "since".
-func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool) ([]string, error) {
+// Clean deletes old images from GCR that are (un)tagged and older than "since" and
+// higher than the "keep" amount.
+func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -58,19 +60,36 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool) ([]strin
 	// Create a worker pool for parallel deletion
 	pool := workerpool.New(c.concurrency)
 
+	var keepCount = 0
 	var deleted = make([]string, 0, len(tags.Manifests))
 	var deletedLock sync.Mutex
 	var errs = make(map[string]error)
 	var errsLock sync.RWMutex
 
+	var manifests = make([]manifest, 0, len(tags.Manifests))
 	for k, m := range tags.Manifests {
-		if c.shouldDelete(m, since, allowTagged) {
+		manifests = append(manifests, manifest{k,m})
+	}
+
+	// Sort manifest by Created from the most recent to the least
+	sort.Slice(manifests, func(i, j int) bool {
+		return manifests[j].Info.Created.Before(manifests[i].Info.Created)
+	})
+
+	for _, m := range manifests {
+		if c.shouldDelete(m.Info, since, allowTagged) {
+			// Keep a certain amount of images
+			if keepCount < keep {
+				keepCount++
+				continue
+			}
+
 			// Deletes all tags before deleting the image
-			for _, tag := range m.Tags {
+			for _, tag := range m.Info.Tags {
 				tagged := repo + ":" + tag
 				c.deleteOne(tagged)
 			}
-			ref := repo + "@" + k
+			ref := repo + "@" + m.Digest
 			pool.Submit(func() {
 				// Do not process if previous invocations failed. This prevents a large
 				// build-up of failed requests and rate limit exceeding (e.g. bad auth).
@@ -94,7 +113,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool) ([]strin
 				}
 
 				deletedLock.Lock()
-				deleted = append(deleted, k)
+				deleted = append(deleted, m.Digest)
 				deletedLock.Unlock()
 			})
 		}
@@ -121,6 +140,11 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool) ([]strin
 	return deleted, nil
 }
 
+type manifest struct {
+	Digest string
+	Info   gcrgoogle.ManifestInfo
+}
+
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ref string) error {
 	name, err := gcrname.ParseReference(ref)
@@ -135,8 +159,8 @@ func (c *Cleaner) deleteOne(ref string) error {
 	return nil
 }
 
-// shouldDelete returns true if the manifest has no tags and is before the
-// requested time.
+// shouldDelete returns true if the manifest has no tags or allows deletion of tagged images
+// and is before the requested time.
 func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool) bool {
 	return (allowTag || len(m.Tags) == 0) && m.Uploaded.UTC().Before(since)
 }
