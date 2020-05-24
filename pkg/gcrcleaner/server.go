@@ -129,11 +129,11 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	}
 
 	since := time.Now().UTC().Add(time.Duration(p.Grace))
-	allow_tagged := p.AllowTagged
+	allowTagged := p.AllowTagged
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allow_tagged)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
