@@ -68,7 +68,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 
 	var manifests = make([]manifest, 0, len(tags.Manifests))
 	for k, m := range tags.Manifests {
-		manifests = append(manifests, manifest{k,m})
+		manifests = append(manifests, manifest{k, m})
 	}
 
 	// Sort manifest by Created from the most recent to the least
