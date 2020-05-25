@@ -108,7 +108,7 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 
 		w.WriteHeader(200)
 		w.Header().Set(contentTypeHeader, contentTypeJSON)
-		w.Write(b)
+		fmt.Fprint(w, string(b))
 	}
 }
 
@@ -157,7 +157,7 @@ func (s *Server) handleError(w http.ResponseWriter, err error, status int) {
 
 	w.WriteHeader(status)
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
-	w.Write(b)
+	fmt.Fprint(w, string(b))
 }
 
 // Payload is the expected incoming payload format.
