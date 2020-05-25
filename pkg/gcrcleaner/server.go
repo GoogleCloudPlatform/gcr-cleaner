@@ -128,7 +128,7 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 		sub = sub * -1
 	}
 
-	since := time.Now().UTC().Add(time.Duration(p.Grace))
+	since := time.Now().UTC().Add(sub)
 	allow_tagged := p.AllowTagged
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
