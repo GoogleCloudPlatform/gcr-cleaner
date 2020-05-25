@@ -87,8 +87,11 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 			// Deletes all tags before deleting the image
 			for _, tag := range m.Info.Tags {
 				tagged := repo + ":" + tag
-				c.deleteOne(tagged)
+				if err := c.deleteOne(tagged); err != nil {
+					return nil, fmt.Errorf("failed to delete %s: %w", tagged, err)
+				}
 			}
+
 			ref := repo + "@" + m.Digest
 			pool.Submit(func() {
 				// Do not process if previous invocations failed. This prevents a large
