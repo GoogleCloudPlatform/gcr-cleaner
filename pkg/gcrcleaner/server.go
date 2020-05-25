@@ -173,7 +173,7 @@ type Payload struct {
 	// to be deleted.
 	AllowTagged bool `json:"allow_tagged"`
 
-	// Keep is an the minimum number of images to keep.
+	// Keep is the minimum number of images to keep.
 	Keep int `json:"keep"`
 }
 
