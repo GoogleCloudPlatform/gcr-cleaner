@@ -14,6 +14,7 @@
 
 docker-push:
 	@gcloud builds submit \
-	  --project "gcr-cleaner" \
-		--tag "gcr.io/gcr-cleaner/gcr-cleaner"
+		--project "gcr-cleaner" \
+		--config ./cloudbuild/cloudbuild.yaml \
+		.
 .PHONY: docker-push
