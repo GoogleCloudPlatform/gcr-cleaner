@@ -155,8 +155,22 @@ The payload is expected to be JSON with the following fields:
 - `allow_tagged` - If set to true, will check all images including tagged.
   If unspecified, the default will only delete untagged images.
 
-- `keep` - If an integer is provided, it will always keep that minimum number 
+- `keep` - If an integer is provided, it will always keep that minimum number
   of images. Note that it will not consider images inside the `grace` duration.
+
+## I just want the container!
+
+You can build the container yourself using the included Dockerfile.
+Alternatively, you can source a pre-built container from Artifact Registry or
+Container Registry. All of the following URLs provide an equivalent image:
+
+```text
+gcr.io/gcr-cleaner/gcr-cleaner
+asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+```
+
 
 ## FAQ
 
