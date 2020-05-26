@@ -12,9 +12,7 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
 +-------------------+    +-------------+    +-------+
 ```
 
-GCR Cleaner is largely inspired by [ahmetb](https://twitter.com/ahmetb)'s
-[gcrgc.sh][gcrgc.sh], but it is written in Go and is designed to be run as a
-service.
+**This is not an official Google product.**
 
 
 ## Setup
@@ -182,6 +180,12 @@ the payload to use the correct repo.
 **Does it work with Cloud Pub/Sub?**
 <br>
 Yes! Just change the endpoint from `/http` to `/pubsub`!
+
+**What was your inspiration?**
+<br>
+GCR Cleaner is largely inspired by [ahmetb](https://twitter.com/ahmetb)'s
+[gcrgc.sh][gcrgc.sh], but it is written in Go and is designed to be run as a
+service.
 
 ## License
 
