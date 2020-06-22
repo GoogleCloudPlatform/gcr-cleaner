@@ -213,7 +213,7 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 	case string:
 		s, err := time.ParseDuration(val)
 		if err != nil {
-			return nil
+			return err
 		}
 		*d = duration(s)
 		return nil
