@@ -121,7 +121,8 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
       --uri "${SERVICE_URL}/http" \
       --message-body "{\"repo\":\"${REPO}\"}" \
       --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --schedule "every monday 09:00"
+      --sechedule "0 8 * * 2" \
+      --time-zone="US/Eastern"
     ```
 
     You can create multiple Cloud Scheduler instances against the same Cloud Run
