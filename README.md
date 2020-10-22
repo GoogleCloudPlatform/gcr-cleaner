@@ -121,7 +121,7 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
       --uri "${SERVICE_URL}/http" \
       --message-body "{\"repo\":\"${REPO}\"}" \
       --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --sechedule "0 8 * * 2" \
+      --schedule "0 8 * * 2" \
       --time-zone="US/Eastern"
     ```
 
