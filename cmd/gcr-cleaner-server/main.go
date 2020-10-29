@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main defines the server interface for GCR Cleaner.
 package main
 
 import (
@@ -36,7 +37,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	addr := "0.0.0.0:" + port
+	addr := ":" + port
 
 	var auther gcrauthn.Authenticator
 	if token := os.Getenv("GCRCLEANER_TOKEN"); token != "" {
@@ -60,7 +61,7 @@ func main() {
 		log.Fatalf("failed to create server: %s", err)
 	}
 
-	cache := newTimerCache(30 * time.Minute)
+	cache := gcrcleaner.NewTimerCache(5 * time.Minute)
 
 	mux := http.NewServeMux()
 	mux.Handle("/http", cleanerServer.HTTPHandler())
@@ -73,7 +74,7 @@ func main() {
 
 	go func() {
 		log.Printf("server is listening on %s\n", port)
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server exited: %s", err)
 		}
 	}()
