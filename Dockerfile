@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.14 AS builder
+FROM golang:1.15 AS builder
+
+ARG SERVICE
 
 RUN apt-get -qq update && apt-get -yqq install upx
 
@@ -28,14 +30,11 @@ RUN go build \
   -a \
   -trimpath \
   -ldflags "-s -w -extldflags '-static'" \
-  -installsuffix cgo \
-  -tags netgo \
-  -mod vendor \
+  -tags 'osusergo netgo static_build' \
   -o /bin/gcrcleaner \
-  .
+  ./cmd/${SERVICE}
 
 RUN strip /bin/gcrcleaner
-
 RUN upx -q -9 /bin/gcrcleaner
 
 

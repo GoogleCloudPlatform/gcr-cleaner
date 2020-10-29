@@ -1,7 +1,9 @@
 # GCR Cleaner
 
-GCR Cleaner deletes untagged images in Google Container Registry. This can help
-reduce costs and keep your container images list in order.
+GCR Cleaner deletes untagged images in Google Cloud [Container
+Registry][container-registry] or Google Cloud [Artifact
+Registry][artifact-registry]. This can help reduce costs and keep your container
+images list in order.
 
 GCR Cleaner is designed to be deployed as a [Cloud Run][cloud-run] service and
 invoked periodically via [Cloud Scheduler][cloud-scheduler].
@@ -59,7 +61,7 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
       --project ${PROJECT_ID} \
       --platform "managed" \
       --service-account "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --image "gcr.io/gcr-cleaner/gcr-cleaner" \
+      --image "us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner" \
       --region "us-central1" \
       --timeout "60s"
     ```
@@ -105,8 +107,9 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
 
     ```sh
     # Replace this with the full name of the repository for which you
-    # want to cleanup old references.
+    # want to cleanup old references, for example:
     export REPO="gcr.io/${PROJECT_ID}/my-image"
+    export REPO="us-docker-pkg.dev/${PROJECT_ID}/my-repo/my-image"
     ```
 
     ```sh
@@ -157,6 +160,14 @@ The payload is expected to be JSON with the following fields:
 - `keep` - If an integer is provided, it will always keep that minimum number
   of images. Note that it will not consider images inside the `grace` duration.
 
+## Running locally
+
+In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:
+
+```text
+docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
+```
+
 ## I just want the container!
 
 You can build the container yourself using the included Dockerfile.
@@ -169,7 +180,6 @@ asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 ```
-
 
 ## FAQ
 
@@ -193,11 +203,13 @@ service.
 This library is licensed under Apache 2.0. Full license text is available in
 [LICENSE](https://github.com/sethvargo/gcr-cleaner/tree/master/LICENSE).
 
+[artifact-registry]: https://cloud.google.com/artifact-registry
 [cloud-build]: https://cloud.google.com/build/
 [cloud-pubsub]: https://cloud.google.com/pubsub/
 [cloud-run]: https://cloud.google.com/run/
 [cloud-scheduler]: https://cloud.google.com/scheduler/
-[cloud-shell]: https://cloud.google.com/shell
 [cloud-sdk]: https://cloud.google.com/sdk
-[gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
+[cloud-shell]: https://cloud.google.com/shell
+[container-registry]: https://cloud.google.com/container-registry
 [gcr-cleaner-godoc]: https://godoc.org/github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner
+[gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
