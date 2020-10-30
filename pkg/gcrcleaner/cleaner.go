@@ -87,13 +87,13 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 
 			// Deletes all tags before deleting the image
 			for _, tag := range m.Info.Tags {
-				tagged := repo + ":" + tag
+				tagged := gcrrepo.Tag(tag)
 				if err := c.deleteOne(tagged); err != nil {
 					return nil, fmt.Errorf("failed to delete %s: %w", tagged, err)
 				}
 			}
 
-			ref := repo + "@" + m.Digest
+			ref := gcrrepo.Digest(m.Digest)
 			pool.Submit(func() {
 				// Do not process if previous invocations failed. This prevents a large
 				// build-up of failed requests and rate limit exceeding (e.g. bad auth).
@@ -150,14 +150,9 @@ type manifest struct {
 }
 
 // deleteOne deletes a single repo ref using the supplied auth.
-func (c *Cleaner) deleteOne(ref string) error {
-	name, err := gcrname.ParseReference(ref)
-	if err != nil {
-		return fmt.Errorf("failed to parse reference %s: %w", ref, err)
-	}
-
-	if err := gcrremote.Delete(name, gcrremote.WithAuth(c.auther)); err != nil {
-		return fmt.Errorf("failed to delete %s: %w", name, err)
+func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
+	if err := gcrremote.Delete(ref, gcrremote.WithAuth(c.auther)); err != nil {
+		return fmt.Errorf("failed to delete %s: %w", ref, err)
 	}
 
 	return nil
