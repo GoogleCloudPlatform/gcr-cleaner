@@ -181,7 +181,7 @@ type Payload struct {
 	// Keep is the minimum number of images to keep.
 	Keep int `json:"keep"`
 
-	// TagFilter is trigger only allow removing on tags with prefix
+	// TagFilter is the tags pattern to be allowed removing
 	TagFilter string `json:"tag_filter"`
 }
 
