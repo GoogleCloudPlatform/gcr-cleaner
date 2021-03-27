@@ -160,6 +160,10 @@ The payload is expected to be JSON with the following fields:
 - `keep` - If an integer is provided, it will always keep that minimum number
   of images. Note that it will not consider images inside the `grace` duration.
 
+- `tag_prefix` - Used for tag prefix limitation, requires `allow_tagged` must be true.
+  For example: use "dev" to limit cleaning only on the tags with prefix is "dev". The default
+  is no filtering.
+
 ## Running locally
 
 In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:

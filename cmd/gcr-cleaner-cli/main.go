@@ -36,6 +36,7 @@ var (
 	gracePtr       = flag.Duration("grace", 0, "Grace period")
 	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
 	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
+	tagPrefixPtr   = flag.String("tag-prefix", "", "Tag prefix to clean")
 )
 
 func main() {
@@ -52,6 +53,9 @@ func realMain() error {
 		return fmt.Errorf("missing -repo")
 	}
 
+	if *allowTaggedPtr == false && *tagPrefixPtr != "" {
+		return fmt.Errorf("-allow-tagged must be true when -tag-prefix is declared")
+	}
 	// Try to find the "best" authentication.
 	var auther gcrauthn.Authenticator
 	if *tokenPtr != "" {
@@ -80,7 +84,7 @@ func realMain() error {
 
 	// Do the deletion.
 	fmt.Fprintf(stdout, "%s: deleting refs since %s\n", *repoPtr, since)
-	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr)
+	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, *tagPrefixPtr)
 	if err != nil {
 		return err
 	}

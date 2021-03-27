@@ -131,10 +131,11 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	since := time.Now().UTC().Add(sub)
 	allowTagged := p.AllowTagged
 	keep := p.Keep
+	tagPrefix := p.TagPrefix
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagPrefix)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -175,6 +176,9 @@ type Payload struct {
 
 	// Keep is the minimum number of images to keep.
 	Keep int `json:"keep"`
+
+	// TagPrefix is trigger only allow removing on tags with prefix
+	TagPrefix string `json:"tag_prefix"`
 }
 
 type pubsubMessage struct {
