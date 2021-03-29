@@ -91,7 +91,7 @@ func realMain() error {
 
 	// Do the deletion.
 	fmt.Fprintf(stdout, "%s: deleting refs since %s\n", *repoPtr, since)
-	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, *tagFilterRegexp)
+	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
 	if err != nil {
 		return err
 	}
