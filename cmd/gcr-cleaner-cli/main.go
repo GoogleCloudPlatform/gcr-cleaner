@@ -60,7 +60,7 @@ func realMain() error {
 
 	tagFilterRegexp, err := regexp.Compile(*tagFilterPtr)
 	if err != nil {
-		return fmt.Errorf("failed to parse -tag-filter")
+		return fmt.Errorf("failed to parse -tag-filter: %w", err)
 	}
 
 	// Try to find the "best" authentication.
