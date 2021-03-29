@@ -163,7 +163,7 @@ The payload is expected to be JSON with the following fields:
 - `tag_filter` - Used for tags regexp definition to define pattern to clean,
   requires `allow_tagged` must be true. For example: use `-tag-filter "^dev.+$"`
   to limit cleaning only on the tags with begining with is `dev`. The default
-  is no filtering.
+  is no filtering. The regular expression is parsed according to the [Go regexp package syntax](https://golang.org/pkg/regexp/syntax/).
 
 ## Running locally
 
