@@ -160,6 +160,11 @@ The payload is expected to be JSON with the following fields:
 - `keep` - If an integer is provided, it will always keep that minimum number
   of images. Note that it will not consider images inside the `grace` duration.
 
+- `tag_filter` - Used for tags regexp definition to define pattern to clean,
+  requires `allow_tagged` must be true. For example: use `-tag-filter "^dev.+$"`
+  to limit cleaning only on the tags with begining with is `dev`. The default
+  is no filtering. The regular expression is parsed according to the [Go regexp package syntax](https://golang.org/pkg/regexp/syntax/).
+
 ## Running locally
 
 In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:

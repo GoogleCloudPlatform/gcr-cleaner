@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 )
 
@@ -131,10 +132,14 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	since := time.Now().UTC().Add(sub)
 	allowTagged := p.AllowTagged
 	keep := p.Keep
+	tagFilterRegexp, err := regexp.Compile(p.TagFilter)
+	if err != nil {
+		return nil, 500, fmt.Errorf("failed to parse tag_filter: %w", err)
+	}
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -175,6 +180,9 @@ type Payload struct {
 
 	// Keep is the minimum number of images to keep.
 	Keep int `json:"keep"`
+
+	// TagFilter is the tags pattern to be allowed removing
+	TagFilter string `json:"tag_filter"`
 }
 
 type pubsubMessage struct {
