@@ -121,7 +121,7 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
     gcloud scheduler jobs create http "gcrclean-myimage" \
       --project ${PROJECT_ID} \
       --description "Cleanup ${REPO}" \
-      --uri "${SERVICE_URL}/http" \
+      --uri "${SERVICE_URL}" \
       --message-body "{\"repo\":\"${REPO}\"}" \
       --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
       --schedule "0 8 * * 2" \
