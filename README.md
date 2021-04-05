@@ -170,7 +170,7 @@ The payload is expected to be JSON with the following fields:
 In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:
 
 ```text
-docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
+docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner-cli
 ```
 
 ## I just want the container!
