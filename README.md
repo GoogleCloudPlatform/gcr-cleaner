@@ -147,7 +147,10 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
 The payload is expected to be JSON with the following fields:
 
 - `repo` - Full name of the repository to clean, in the format
-  `gcr.io/project/repo`. This field is required.
+  `gcr.io/project/repo`. Either this field is required or `registry`.
+
+- `registry` - Full name of the registry to clean in the format `gcr.io/project`.
+  This will clean ALL repos in a registry. Either this field is required or `repo`.
 
 - `grace` - Relative duration in which to ignore references. This value is
   specified as a time duration value like "5s" or "3h". If set, refs newer than
