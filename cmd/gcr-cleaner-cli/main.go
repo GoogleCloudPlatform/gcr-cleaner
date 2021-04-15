@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -61,6 +62,10 @@ func realMain() error {
 		return fmt.Errorf("missing -repo or -registry")
 	}
 
+	if *repoPtr != "" && *registryPtr != "" {
+		return fmt.Errorf("only use one of -repo or -registry flags")
+	}
+
 	if *allowTaggedPtr == false && *tagFilterPtr != "" {
 		return fmt.Errorf("-allow-tagged must be true when -tag-filter is declared")
 	}
@@ -96,12 +101,19 @@ func realMain() error {
 	}
 	since := time.Now().UTC().Add(sub)
 
+	var multierror []string
 	// walk through all repos in a registry
 	if *registryPtr != "" {
 		walkFn := func(repo gcrname.Repository, tags *google.Tags, err error) error {
 			repoName := repo.String()
 			// Do the deletion.
-			return delete(&repoName, since, err, cleaner, tagFilterRegexp)
+			err = delete(&repoName, since, err, cleaner, tagFilterRegexp)
+
+			// if we have an error with one repo let's continue to gc others
+			if err != nil {
+				multierror = append(multierror, errors.Wrapf(err, "failed to delete repo %s", *registryPtr).Error())
+			}
+			return nil
 		}
 		srcRepo, err := gcrname.NewRepository(*registryPtr)
 		if err != nil {
@@ -109,6 +121,9 @@ func realMain() error {
 		}
 		if err := google.Walk(srcRepo, walkFn, google.WithAuth(auther)); err != nil {
 			return errors.Wrapf(err, "failed to walk repo %s", *registryPtr)
+		}
+		if len(multierror) > 0 {
+			return fmt.Errorf(strings.Join(multierror, "\n"))
 		}
 	} else {
 		// Do the deletion.
