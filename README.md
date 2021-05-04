@@ -188,30 +188,7 @@ us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 
 ## What about using Terraform!
 
-:package: You can deploy the stack using the community-supported Terraform module [gcr-cleaner](https://registry.terraform.io/modules/mirakl/gcr-cleaner/google/latest):
-
-```hcl
-module "gcr_cleaner" {
-  source  = "mirakl/gcr-cleaner/google"
-  version = "~> 0.5"
-
-  create_app_engine_app           = true
-  app_engine_application_location = "us-central"
-  cloud_run_service_name          = "gcr-cleaner"
-  cloud_run_service_location      = "us-central1"
-  cloud_scheduler_job_schedule    = "0 8 * * 2"
-  cloud_scheduler_job_time_zone   = "US/Eastern"
-  gcr_repositories = [
-    {
-      project_id   = "my-project-id"
-      repositories = [
-        "my-repo/my-image",
-      ]
-    }
-  ]
-}
-
-```
+:package: You can deploy the stack using the community-supported Terraform module [gcr-cleaner](https://registry.terraform.io/modules/mirakl/gcr-cleaner/google/latest#usage):
 
 ## FAQ
 
