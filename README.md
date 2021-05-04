@@ -186,6 +186,10 @@ europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 ```
 
+## What about using Terraform!
+
+:package: You can deploy the stack using the community-supported Terraform module [gcr-cleaner](https://registry.terraform.io/modules/mirakl/gcr-cleaner/google/latest#usage):
+
 ## FAQ
 
 **How do I clean up multiple Google Container Registry repos at once?**
