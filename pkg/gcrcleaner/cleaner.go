@@ -162,5 +162,16 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
 // shouldDelete returns true if the manifest has no tags or allows deletion of tagged images
 // and is before the requested time.
 func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp) bool {
-	return (len(m.Tags) == 0 || (allowTag && tagFilterRegexp.MatchString(m.Tags[0]))) && m.Uploaded.UTC().Before(since)
+	return (len(m.Tags) == 0 || (allowTag && tagcheck(m.Tags, tagFilterRegexp))) && m.Uploaded.UTC().Before(since)
+}
+
+// tagcheck returns true if any one of the tags in the manifest match the tagFilterRegexp
+func tagcheck(tags []string, tagFilterRegexp *regexp.Regexp) bool {
+	for _, v := range tags {
+		match := tagFilterRegexp.MatchString(v)
+		if match {
+			return match
+		}
+	}
+	return false
 }
