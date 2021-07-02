@@ -114,7 +114,7 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 }
 
 // clean reads the given body as JSON and starts a cleaner instance.
-func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
+func (s *Server) clean(r io.ReadCloser) ([]manifest, int, error) {
 	var p Payload
 	if err := json.NewDecoder(r).Decode(&p); err != nil {
 		return nil, 500, fmt.Errorf("failed to decode payload as JSON: %w", err)
@@ -136,10 +136,11 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	if err != nil {
 		return nil, 500, fmt.Errorf("failed to parse tag_filter: %w", err)
 	}
+	dryRun := p.DryRun
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp, dryRun)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -183,6 +184,9 @@ type Payload struct {
 
 	// TagFilter is the tags pattern to be allowed removing
 	TagFilter string `json:"tag_filter"`
+
+	// DryRun is a Boolean value to enable Dry Run
+	DryRun bool `json:"dry_run"`
 }
 
 type pubsubMessage struct {
@@ -194,8 +198,8 @@ type pubsubMessage struct {
 }
 
 type cleanResp struct {
-	Count int      `json:"count"`
-	Refs  []string `json:"refs"`
+	Count int        `json:"count"`
+	Refs  []manifest `json:"refs"`
 }
 
 type errorResp struct {

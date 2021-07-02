@@ -38,6 +38,7 @@ var (
 	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
 	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
 	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
+	dryRunPtr      = flag.Bool("dry-run", false, "Dry Run")
 )
 
 func main() {
@@ -90,12 +91,31 @@ func realMain() error {
 	since := time.Now().UTC().Add(sub)
 
 	// Do the deletion.
-	fmt.Fprintf(stdout, "%s: deleting refs since %s\n", *repoPtr, since)
-	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
+	if *dryRunPtr {
+		fmt.Fprintf(stdout, "%s: (DRY RUN) deleting refs since %s\n", *repoPtr, since)
+	} else {
+		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", *repoPtr, since)
+	}
+	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "%s: successfully deleted %d refs", *repoPtr, len(deleted))
+
+	if *dryRunPtr {
+		fmt.Fprintf(stdout, "%s: (DRY RUN) would delete %d refs\n", *repoPtr, len(deleted))
+		for _, v := range deleted {
+			fmt.Fprintf(stdout, "Digest:\n    %s\n", v.Digest)
+			if len(v.Info.Tags) > 0 {
+				fmt.Fprintln(stdout, "With tags:")
+				for _, t := range v.Info.Tags {
+					fmt.Fprintf(stdout, "    %s\n", t)
+				}
+			}
+			fmt.Fprintf(stdout, "---\n")
+		}
+	} else {
+		fmt.Fprintf(stdout, "%s: successfully deleted %d refs", *repoPtr, len(deleted))
+	}
 
 	return nil
 }
