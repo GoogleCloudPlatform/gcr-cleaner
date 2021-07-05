@@ -39,6 +39,7 @@ var (
 	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
 	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
 	dryRunPtr      = flag.Bool("dry-run", false, "Dry Run")
+	concurrencyPtr = flag.Int("concurrency", 0, "Number of parallel deletions")
 )
 
 func main() {
@@ -76,7 +77,10 @@ func realMain() error {
 		}
 	}
 
-	concurrency := runtime.NumCPU()
+	concurrency := *concurrencyPtr
+	if concurrency == 0 {
+		concurrency = runtime.NumCPU()
+	}
 	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
