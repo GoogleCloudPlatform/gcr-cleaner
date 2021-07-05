@@ -168,6 +168,11 @@ The payload is expected to be JSON with the following fields:
 - `dry_run` - If set to true, only print out the image digests and tags that would be deleted.
   Useful to test the result is what's expected.
 
+- `concurrency` - If set, this will be the number of parallel deletions. The default is equal to the number of CPUs.
+  Useful in case the Google rate limiter gets hit.
+  This parameter is only available in the CLI.
+  Use the CONCURRENCY environment variable to set the concurrency in the Server.
+
 ## Running locally
 
 In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:

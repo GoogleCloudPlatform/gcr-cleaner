@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"time"
 
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
@@ -50,7 +51,13 @@ func main() {
 		}
 	}
 
-	concurrency := runtime.NumCPU()
+	concurrency, err := strconv.Atoi(os.Getenv("CONCURRENCY"))
+	if err != nil {
+		log.Println("WARNING: CONCURRENCY must be a valid integer")
+	}
+	if concurrency == 0 {
+		concurrency = runtime.NumCPU()
+	}
 	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
 	if err != nil {
 		log.Fatalf("failed to create cleaner: %s", err)
