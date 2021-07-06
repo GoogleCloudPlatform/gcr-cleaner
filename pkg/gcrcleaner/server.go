@@ -23,6 +23,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -136,11 +137,18 @@ func (s *Server) clean(r io.ReadCloser) ([]manifest, int, error) {
 	if err != nil {
 		return nil, 500, fmt.Errorf("failed to parse tag_filter: %w", err)
 	}
+	tagFilterMatchAny := p.TagFilterMatchAny
+	excludedTags := map[string]struct{}{}
+	if p.ExcludedTags != "" {
+		for _, v := range strings.Split(p.ExcludedTags, ",") {
+			excludedTags[v] = struct{}{}
+		}
+	}
 	dryRun := p.DryRun
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp, dryRun)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp, tagFilterMatchAny, excludedTags, dryRun)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -184,6 +192,13 @@ type Payload struct {
 
 	// TagFilter is the tags pattern to be allowed removing
 	TagFilter string `json:"tag_filter"`
+
+	// TagFilterMatchAny is a Boolean value to determine if all tags on one image should
+	// match the TagFilter (false) or at least one (true)
+	TagFilterMatchAny bool `json:"tag_filter_match_any"`
+
+	// ExcludedTags is the comma separated list of tags to exclude
+	ExcludedTags string `json:"excluded_tags"`
 
 	// DryRun is a Boolean value to enable Dry Run
 	DryRun bool `json:"dry_run"`

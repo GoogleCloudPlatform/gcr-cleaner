@@ -162,8 +162,16 @@ The payload is expected to be JSON with the following fields:
 
 - `tag_filter` - Used for tags regexp definition to define pattern to clean,
   requires `allow_tagged` must be true. For example: use `-tag-filter "^dev.+$"`
-  to limit cleaning only on the tags with begining with is `dev`. The default
+  to limit cleaning only on the tags with beginning with is `dev`. The default
   is no filtering. The regular expression is parsed according to the [Go regexp package syntax](https://golang.org/pkg/regexp/syntax/).
+  
+- `tag_filter_match_any` - If set to true, when tag_filter is specified, for each image one tag matching the filter is enough to 
+  delete the image (this was the default behaviour before this variable was introduced).
+  The "new" default is false, meaning for each image, ALL the tags must match the `tag_filter` for the image to be deleted
+  
+- `excluded_tags` - This is an optional comma separated list of tags to exclude from the deletion.
+  If any of these tags is associated with an image, that image will not be deleted.
+  By default, no tags are excluded.
 
 - `dry_run` - If set to true, only print out the image digests and tags that would be deleted.
   Useful to test the result is what's expected.

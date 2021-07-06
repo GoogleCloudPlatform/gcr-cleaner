@@ -48,7 +48,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since" and
 // higher than the "keep" amount.
-func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, dryRun bool) ([]manifest, error) {
+func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, tagFilterMatchAny bool, excludedTags map[string]struct{}, dryRun bool) ([]manifest, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -81,7 +81,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 	for _, m := range manifests {
 		m := m
 
-		if c.shouldDelete(m.Info, since, allowTagged, tagFilterRegexp) {
+		if shouldDelete(m.Info, since, allowTagged, tagFilterRegexp, tagFilterMatchAny, excludedTags) {
 			// Keep a certain amount of images
 			if keepCount < keep {
 				keepCount++
@@ -167,18 +167,25 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference, dryRun bool) error {
 
 // shouldDelete returns true if the manifest has no tags or allows deletion of tagged images
 // and is before the requested time.
-func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp) bool {
-	return (len(m.Tags) == 0 || (allowTag && tagcheck(m.Tags, tagFilterRegexp))) && m.Uploaded.UTC().Before(since)
+func shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp, tagFilterMatchAny bool, excludedTags map[string]struct{}) bool {
+	return (len(m.Tags) == 0 || (allowTag && tagCheck(m.Tags, tagFilterRegexp, tagFilterMatchAny, excludedTags))) && m.Uploaded.UTC().Before(since)
 }
 
-// tagcheck returns true if any one of the tags in the manifest match the tagFilterRegexp
-func tagcheck(tags []string, tagFilterRegexp *regexp.Regexp) bool {
+// tagCheck returns true if the image can be deleted, based on tagFilterRegexp, tagFilterMatchAny and excludedTags
+func tagCheck(tags []string, tagFilterRegexp *regexp.Regexp, tagFilterMatchAny bool, excludedTags map[string]struct{}) bool {
+	canDelete := false
 	for _, v := range tags {
+		if _, ok := excludedTags[v]; ok {
+			return false
+		}
 		match := tagFilterRegexp.MatchString(v)
+		if !tagFilterMatchAny && !match {
+			return false
+		}
 		if match {
-			return match
+			canDelete = true
 		}
 	}
 
-	return false
+	return canDelete
 }

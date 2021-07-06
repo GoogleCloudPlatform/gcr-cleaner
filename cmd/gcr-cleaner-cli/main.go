@@ -21,6 +21,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
@@ -32,14 +33,16 @@ var (
 	stdout = os.Stdout
 	stderr = os.Stderr
 
-	tokenPtr       = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	repoPtr        = flag.String("repo", "", "Repository name")
-	gracePtr       = flag.Duration("grace", 0, "Grace period")
-	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
-	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
-	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
-	dryRunPtr      = flag.Bool("dry-run", false, "Dry Run")
-	concurrencyPtr = flag.Int("concurrency", 0, "Number of parallel deletions")
+	tokenPtr             = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
+	repoPtr              = flag.String("repo", "", "Repository name")
+	gracePtr             = flag.Duration("grace", 0, "Grace period")
+	allowTaggedPtr       = flag.Bool("allow-tagged", false, "Delete tagged images")
+	keepPtr              = flag.Int("keep", 0, "Minimum to keep")
+	tagFilterPtr         = flag.String("tag-filter", "", "Tags pattern to clean")
+	tagFilterMatchAnyPtr = flag.Bool("tag-filter-match-any", false, "Delete image if any one tag matches the tags pattern")
+	excludedTagsPtr      = flag.String("excluded-tags", "", "Tags to be excluded")
+	dryRunPtr            = flag.Bool("dry-run", false, "Dry Run")
+	concurrencyPtr       = flag.Int("concurrency", 0, "Number of parallel deletions")
 )
 
 func main() {
@@ -56,13 +59,20 @@ func realMain() error {
 		return fmt.Errorf("missing -repo")
 	}
 
-	if *allowTaggedPtr == false && *tagFilterPtr != "" {
-		return fmt.Errorf("-allow-tagged must be true when -tag-filter is declared")
+	if *allowTaggedPtr == false && (*tagFilterPtr != "" || *excludedTagsPtr != "") {
+		return fmt.Errorf("-allow-tagged must be true when -tag-filter and/or -exclude-tags are declared")
 	}
 
 	tagFilterRegexp, err := regexp.Compile(*tagFilterPtr)
 	if err != nil {
 		return fmt.Errorf("failed to parse -tag-filter: %w", err)
+	}
+
+	excludedTags := map[string]struct{}{}
+	if *excludedTagsPtr != "" {
+		for _, v := range strings.Split(*excludedTagsPtr, ",") {
+			excludedTags[v] = struct{}{}
+		}
 	}
 
 	// Try to find the "best" authentication.
@@ -100,7 +110,7 @@ func realMain() error {
 	} else {
 		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", *repoPtr, since)
 	}
-	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
+	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *tagFilterMatchAnyPtr, excludedTags, *dryRunPtr)
 	if err != nil {
 		return err
 	}
