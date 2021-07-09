@@ -16,6 +16,7 @@
 package gcrcleaner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -163,4 +164,35 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
 // and is before the requested time.
 func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp) bool {
 	return (len(m.Tags) == 0 || (allowTag && tagFilterRegexp.MatchString(m.Tags[0]))) && m.Uploaded.UTC().Before(since)
+}
+
+func (c *Cleaner) ListChildRepositories(rootRepository string) ([]string, error) {
+	var childRepos = make([]string, 0)
+
+	rootRepo, err := gcrname.NewRepository(rootRepository)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create repository %s: %w", rootRepository, err)
+	}
+
+	registry, err := gcrname.NewRegistry(rootRepo.RegistryStr())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registry %s: %w", rootRepo.RegistryStr(), err)
+	}
+
+	allRepos, err := gcrremote.Catalog(context.TODO(), registry, gcrremote.WithAuth(c.auther))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch all repositories from registry %s: %w", registry.Name(), err)
+	}
+
+	var matchPrefix string = rootRepo.RepositoryStr()
+	if string(matchPrefix[len(matchPrefix)-1]) != "/" {
+		matchPrefix += "/"
+	}
+	for _, repo := range allRepos {
+		if strings.HasPrefix(repo, matchPrefix) {
+			childRepos = append(childRepos, fmt.Sprintf("%s/%s", registry.Name(), repo))
+		}
+	}
+
+	return childRepos, nil
 }

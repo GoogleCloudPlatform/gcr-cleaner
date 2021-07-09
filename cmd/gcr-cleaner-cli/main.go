@@ -34,6 +34,7 @@ var (
 
 	tokenPtr       = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
 	repoPtr        = flag.String("repo", "", "Repository name")
+	recursivePtr   = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
 	gracePtr       = flag.Duration("grace", 0, "Grace period")
 	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
 	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
@@ -89,13 +90,26 @@ func realMain() error {
 	}
 	since := time.Now().UTC().Add(sub)
 
-	// Do the deletion.
-	fmt.Fprintf(stdout, "%s: deleting refs since %s\n", *repoPtr, since)
-	deleted, err := cleaner.Clean(*repoPtr, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
-	if err != nil {
-		return err
+	// Gather the repositories
+	var repositories = make([]string, 0)
+	repositories = append(repositories, *repoPtr)
+	if *recursivePtr {
+		childRepos, err := cleaner.ListChildRepositories(*repoPtr)
+		if err != nil {
+			return err
+		}
+		repositories = append(repositories, childRepos...)
 	}
-	fmt.Fprintf(stdout, "%s: successfully deleted %d refs", *repoPtr, len(deleted))
+
+	// Do the deletion.
+	for _, repo := range repositories {
+		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
+		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
+	}
 
 	return nil
 }
