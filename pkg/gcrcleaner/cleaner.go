@@ -166,7 +166,7 @@ func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowT
 	return (len(m.Tags) == 0 || (allowTag && tagFilterRegexp.MatchString(m.Tags[0]))) && m.Uploaded.UTC().Before(since)
 }
 
-func (c *Cleaner) ListChildRepositories(rootRepository string) ([]string, error) {
+func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository string) ([]string, error) {
 	var childRepos = make([]string, 0)
 
 	rootRepo, err := gcrname.NewRepository(rootRepository)
@@ -179,20 +179,17 @@ func (c *Cleaner) ListChildRepositories(rootRepository string) ([]string, error)
 		return nil, fmt.Errorf("failed to create registry %s: %w", rootRepo.RegistryStr(), err)
 	}
 
-	allRepos, err := gcrremote.Catalog(context.TODO(), registry, gcrremote.WithAuth(c.auther))
+	allRepos, err := gcrremote.Catalog(ctx, registry, gcrremote.WithAuth(c.auther))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch all repositories from registry %s: %w", registry.Name(), err)
 	}
 
-	var matchPrefix string = rootRepo.RepositoryStr()
-	if string(matchPrefix[len(matchPrefix)-1]) != "/" {
-		matchPrefix += "/"
-	}
 	for _, repo := range allRepos {
-		if strings.HasPrefix(repo, matchPrefix) {
+		if strings.HasPrefix(repo, rootRepository) {
 			childRepos = append(childRepos, fmt.Sprintf("%s/%s", registry.Name(), repo))
 		}
 	}
 
+	sort.Strings(childRepos)
 	return childRepos, nil
 }

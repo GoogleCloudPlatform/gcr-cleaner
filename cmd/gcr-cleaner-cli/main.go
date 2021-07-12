@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -25,6 +26,7 @@ import (
 
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
+	"github.com/hashicorp/go-multierror"
 	"github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner"
 )
 
@@ -94,7 +96,7 @@ func realMain() error {
 	var repositories = make([]string, 0)
 	repositories = append(repositories, *repoPtr)
 	if *recursivePtr {
-		childRepos, err := cleaner.ListChildRepositories(*repoPtr)
+		childRepos, err := cleaner.ListChildRepositories(context.Background(), *repoPtr)
 		if err != nil {
 			return err
 		}
@@ -102,14 +104,15 @@ func realMain() error {
 	}
 
 	// Do the deletion.
+	var result error
 	for _, repo := range repositories {
 		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
 		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
 		if err != nil {
-			return err
+			result = multierror.Append(result, err)
 		}
 		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
 	}
 
-	return nil
+	return result
 }
