@@ -8,6 +8,7 @@ require (
 	github.com/gammazero/deque v0.0.0-20201010052221-3932da5530cc // indirect
 	github.com/gammazero/workerpool v1.1.1
 	github.com/google/go-containerregistry v0.1.4
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20201029221708-28c70e62bb1d // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
