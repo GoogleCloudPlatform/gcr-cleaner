@@ -167,8 +167,6 @@ func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowT
 }
 
 func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository string) ([]string, error) {
-	var childRepos = make([]string, 0)
-
 	rootRepo, err := gcrname.NewRepository(rootRepository)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repository %s: %w", rootRepository, err)
@@ -184,6 +182,7 @@ func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository stri
 		return nil, fmt.Errorf("failed to fetch all repositories from registry %s: %w", registry.Name(), err)
 	}
 
+	var childRepos = make([]string, 0, len(allRepos))
 	for _, repo := range allRepos {
 		if strings.HasPrefix(repo, rootRepository) {
 			childRepos = append(childRepos, fmt.Sprintf("%s/%s", registry.Name(), repo))
