@@ -104,7 +104,7 @@ func realMain() error {
 	}
 
 	// Do the deletion.
-	var result error
+	var result *multierror.Error
 	for _, repo := range repositories {
 		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
 		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
@@ -114,5 +114,5 @@ func realMain() error {
 		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
 	}
 
-	return result
+	return result.ErrorOrNil()
 }
