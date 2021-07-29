@@ -165,6 +165,8 @@ The payload is expected to be JSON with the following fields:
   to limit cleaning only on the tags with begining with is `dev`. The default
   is no filtering. The regular expression is parsed according to the [Go regexp package syntax](https://golang.org/pkg/regexp/syntax/).
 
+- `dry_run` - If true don't delete anything and output what would be deleted (assuming no errors would occuring delete api call).
+
 ## Running locally
 
 In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:
