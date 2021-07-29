@@ -139,7 +139,7 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp)
+	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp, p.DryRun)
 	if err != nil {
 		return nil, 400, fmt.Errorf("failed to clean: %w", err)
 	}
@@ -183,6 +183,9 @@ type Payload struct {
 
 	// TagFilter is the tags pattern to be allowed removing
 	TagFilter string `json:"tag_filter"`
+
+	// DryRun is to enable a NOOP
+	DryRun bool `json:"dry_run"`
 }
 
 type pubsubMessage struct {

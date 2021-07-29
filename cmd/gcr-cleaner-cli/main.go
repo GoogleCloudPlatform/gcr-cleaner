@@ -41,6 +41,7 @@ var (
 	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
 	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
 	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
+	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
 )
 
 func main() {
@@ -106,13 +107,18 @@ func realMain() error {
 	// Do the deletion.
 	var result *multierror.Error
 	for _, repo := range repositories {
-		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
-		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
+		if *dryRunPtr {
+			fmt.Fprintf(stdout, "%s: dry run deleting refs since %s\n", repo, since)
+		} else {
+			fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
+		}
+		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
-		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
+		if *dryRunPtr {
+			fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
+		}
 	}
-
 	return result.ErrorOrNil()
 }
