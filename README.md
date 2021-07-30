@@ -167,6 +167,8 @@ The payload is expected to be JSON with the following fields:
 
 - `dry_run` - If true don't delete anything and output what would be deleted (assuming no errors would occuring delete api call).
 
+- `recursive` - If true, recursively search all child repositories.
+
 ## Running locally
 
 In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:

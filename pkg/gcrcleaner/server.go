@@ -16,6 +16,7 @@ package gcrcleaner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +25,8 @@ import (
 	"net/http"
 	"regexp"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -130,22 +133,40 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	}
 
 	since := time.Now().UTC().Add(sub)
-	allowTagged := p.AllowTagged
-	keep := p.Keep
 	tagFilterRegexp, err := regexp.Compile(p.TagFilter)
 	if err != nil {
 		return nil, 500, fmt.Errorf("failed to parse tag_filter: %w", err)
 	}
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
-
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp, p.DryRun)
-	if err != nil {
-		return nil, 400, fmt.Errorf("failed to clean: %w", err)
+	// Gather the repositories
+	var repositories = make([]string, 0)
+	repositories = append(repositories, p.Repo)
+	if p.Recursive {
+		childRepos, err := s.cleaner.ListChildRepositories(context.Background(), p.Repo)
+		if err != nil {
+			return []string{}, 0, err
+		}
+		repositories = append(repositories, childRepos...)
 	}
 
-	log.Printf("deleted %d refs for %s", len(deleted), repo)
-
+	deleted := make([]string, 0)
+	// Do the deletion.
+	var result *multierror.Error
+	for _, repo := range repositories {
+		if p.DryRun {
+			log.Printf("%s: dry run deleting refs since %s\n", repo, since)
+		} else {
+			log.Printf("%s: deleting refs since %s\n", repo, since)
+		}
+		deleted, err = s.cleaner.Clean(repo, since, p.AllowTagged, p.Keep, tagFilterRegexp, p.DryRun)
+		if err != nil {
+			result = multierror.Append(result, err)
+		}
+		if p.DryRun {
+			log.Printf("%s: successfully deleted %d refs\n", repo, len(deleted))
+		}
+	}
 	return deleted, 200, nil
 }
 
@@ -186,6 +207,9 @@ type Payload struct {
 
 	// DryRun is to enable a NOOP
 	DryRun bool `json:"dry_run"`
+
+	// Recursive is to enable cleaning all child repositories
+	Recursive bool `json:"recursive"`
 }
 
 type pubsubMessage struct {
