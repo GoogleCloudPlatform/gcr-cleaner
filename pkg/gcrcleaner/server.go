@@ -16,6 +16,7 @@ package gcrcleaner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"sort"
 	"time"
 )
 
@@ -52,6 +54,8 @@ func NewServer(cleaner *Cleaner) (*Server, error) {
 // unless the pubsub message is malformed.
 func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		var m pubsubMessage
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			err = fmt.Errorf("failed to decode pubsub message: %w", err)
@@ -78,7 +82,7 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 		// Start a goroutine to delete the images
 		body := ioutil.NopCloser(bytes.NewReader(m.Message.Data))
 		go func() {
-			if _, _, err := s.clean(body); err != nil {
+			if _, _, err := s.clean(ctx, body); err != nil {
 				log.Printf("error async: %s", err.Error())
 			}
 		}()
@@ -91,7 +95,9 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 // parameters.
 func (s *Server) HTTPHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		deleted, status, err := s.clean(r.Body)
+		ctx := r.Context()
+
+		deleted, status, err := s.clean(ctx, r.Body)
 		if err != nil {
 			s.handleError(w, err, status)
 			return
@@ -114,7 +120,7 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 }
 
 // clean reads the given body as JSON and starts a cleaner instance.
-func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
+func (s *Server) clean(ctx context.Context, r io.ReadCloser) ([]string, int, error) {
 	var p Payload
 	if err := json.NewDecoder(r).Decode(&p); err != nil {
 		return nil, 500, fmt.Errorf("failed to decode payload as JSON: %w", err)
@@ -130,23 +136,38 @@ func (s *Server) clean(r io.ReadCloser) ([]string, int, error) {
 	}
 
 	since := time.Now().UTC().Add(sub)
-	allowTagged := p.AllowTagged
-	keep := p.Keep
 	tagFilterRegexp, err := regexp.Compile(p.TagFilter)
 	if err != nil {
-		return nil, 500, fmt.Errorf("failed to parse tag_filter: %w", err)
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to parse tag_filter %q: %w", p.TagFilter, err)
 	}
 
 	log.Printf("deleting refs for %s since %s\n", repo, since)
 
-	deleted, err := s.cleaner.Clean(repo, since, allowTagged, keep, tagFilterRegexp, p.DryRun)
-	if err != nil {
-		return nil, 400, fmt.Errorf("failed to clean: %w", err)
+	// Gather the repositories
+	repositories := make([]string, 0, 16)
+	repositories = append(repositories, p.Repo)
+	if p.Recursive {
+		childRepos, err := s.cleaner.ListChildRepositories(context.Background(), p.Repo)
+		if err != nil {
+			return nil, http.StatusBadRequest, fmt.Errorf("failed to list child repositories for %q: %w", p.Repo, err)
+		}
+		repositories = append(repositories, childRepos...)
 	}
 
-	log.Printf("deleted %d refs for %s", len(deleted), repo)
+	// Do the deletion.
+	deleted := make([]string, 0, len(repositories))
+	for _, repo := range repositories {
+		childrenDeleted, err := s.cleaner.Clean(repo, since, p.AllowTagged, p.Keep, tagFilterRegexp, p.DryRun)
+		if err != nil {
+			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
+		}
+		deleted = append(deleted, childrenDeleted...)
+	}
 
-	return deleted, 200, nil
+	// Sort results
+	sort.Strings(deleted)
+
+	return deleted, http.StatusOK, nil
 }
 
 // handleError returns a JSON-formatted error message
@@ -181,11 +202,15 @@ type Payload struct {
 	// Keep is the minimum number of images to keep.
 	Keep int `json:"keep"`
 
-	// TagFilter is the tags pattern to be allowed removing
+	// TagFilter is the tags pattern to be allowed removing.
 	TagFilter string `json:"tag_filter"`
 
-	// DryRun is to enable a NOOP
+	// DryRun instructs the server to not perform actual cleaning. The response
+	// will include repositories that would have been deleted.
 	DryRun bool `json:"dry_run"`
+
+	// Recursive enables cleaning all child repositories.
+	Recursive bool `json:"recursive"`
 }
 
 type pubsubMessage struct {
