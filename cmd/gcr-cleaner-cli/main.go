@@ -20,8 +20,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"regexp"
 	"runtime"
+	"syscall"
 	"time"
 
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
@@ -41,23 +43,29 @@ var (
 	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
 	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
 	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
+	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	flag.Parse()
 
-	if err := realMain(); err != nil {
+	if err := realMain(ctx); err != nil {
+		cancel()
+
 		fmt.Fprintf(stderr, "%s\n", err)
 		os.Exit(1)
 	}
 }
 
-func realMain() error {
+func realMain(ctx context.Context) error {
 	if *repoPtr == "" {
 		return fmt.Errorf("missing -repo")
 	}
 
-	if *allowTaggedPtr == false && *tagFilterPtr != "" {
+	if !*allowTaggedPtr && *tagFilterPtr != "" {
 		return fmt.Errorf("-allow-tagged must be true when -tag-filter is declared")
 	}
 
@@ -96,23 +104,28 @@ func realMain() error {
 	var repositories = make([]string, 0)
 	repositories = append(repositories, *repoPtr)
 	if *recursivePtr {
-		childRepos, err := cleaner.ListChildRepositories(context.Background(), *repoPtr)
+		childRepos, err := cleaner.ListChildRepositories(ctx, *repoPtr)
 		if err != nil {
 			return err
 		}
 		repositories = append(repositories, childRepos...)
 	}
 
+	// Log dry-run mode.
+	if *dryRunPtr {
+		fmt.Fprintf(stderr, "WARNING: Running in dry run mode! Nothing will "+
+			"actually be cleaned.")
+	}
+
 	// Do the deletion.
 	var result *multierror.Error
 	for _, repo := range repositories {
 		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
-		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp)
+		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
 		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
 	}
-
 	return result.ErrorOrNil()
 }
