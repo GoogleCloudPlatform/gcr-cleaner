@@ -184,7 +184,7 @@ func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository stri
 
 	var childRepos = make([]string, 0, len(allRepos))
 	for _, repo := range allRepos {
-		if strings.HasPrefix(repo, rootRepository) {
+		if strings.HasPrefix(repo, rootRepo.RepositoryStr()) {
 			childRepos = append(childRepos, fmt.Sprintf("%s/%s", registry.Name(), repo))
 		}
 	}
