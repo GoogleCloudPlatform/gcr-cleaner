@@ -167,7 +167,7 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference, dryRun bool) error {
 // shouldDelete returns true if the manifest has no tags or allows deletion of tagged images
 // and is before the requested time.
 func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp) bool {
-	return (len(m.Tags) == 0 || (allowTag && tagFilterRegexp.MatchString(m.Tags[0]))) && m.Uploaded.UTC().Before(since)
+	return len(m.Tags) > 0 && allowTag && tagFilterRegexp.MatchString(m.Tags[0]) && m.Uploaded.UTC().Before(since)
 }
 
 func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository string) ([]string, error) {
