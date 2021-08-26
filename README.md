@@ -79,6 +79,12 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
     "gcr.io/project-b/image", you would need to grant the Cloud Run service
     account in project-a permission on `artifacts.projects-b.appspot.com`.
 
+    To clean up Container Registry images hosted in specific regions, update the bucket name to include the region:
+
+    ```text
+    gs://eu.artifacts.${PROJECT_ID}.appspot.com
+    ```
+
 1. Create a service account with permission to invoke the Cloud Run service:
 
     ```sh
