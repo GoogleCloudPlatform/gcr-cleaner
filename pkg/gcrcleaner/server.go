@@ -82,7 +82,8 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 		// Start a goroutine to delete the images
 		body := ioutil.NopCloser(bytes.NewReader(m.Message.Data))
 		go func() {
-			if _, _, err := s.clean(ctx, body); err != nil {
+			if _, _, err := s.clean(ctx, body)
+			if err != nil {
 				log.Printf("error async: %s", err.Error())
 			}
 		}()
@@ -104,8 +105,9 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 		}
 
 		b, err := json.Marshal(&cleanResp{
-			Count: len(deleted),
-			Refs:  deleted,
+			Count: len(deleted.Manifests),
+			Refs:  deleted.Manifests,
+			Size:  deleted.Size,
 		})
 		if err != nil {
 			err = fmt.Errorf("failed to marshal JSON errors: %w", err)
@@ -120,7 +122,7 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 }
 
 // clean reads the given body as JSON and starts a cleaner instance.
-func (s *Server) clean(ctx context.Context, r io.ReadCloser) ([]string, int, error) {
+func (s *Server) clean(ctx context.Context, r io.ReadCloser) (*deleteStats, int, error) {
 	var p Payload
 	if err := json.NewDecoder(r).Decode(&p); err != nil {
 		return nil, 500, fmt.Errorf("failed to decode payload as JSON: %w", err)
@@ -155,17 +157,23 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) ([]string, int, err
 	}
 
 	// Do the deletion.
-	deleted := make([]string, 0, len(repositories))
+	deleted := &deleteStats{
+		make([]string, 0, len(repositories)),
+		0,
+	}
 	for _, repo := range repositories {
 		childrenDeleted, err := s.cleaner.Clean(repo, since, p.AllowTagged, p.Keep, tagFilterRegexp, p.DryRun)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}
-		deleted = append(deleted, childrenDeleted...)
+		deleted.Manifests = append(deleted.Manifests, childrenDeleted.Manifests...)
+		deleted.Size += childrenDeleted.Size
 	}
 
 	// Sort results
-	sort.Strings(deleted)
+	sort.Strings(deleted.Manifests)
+
+	log.Printf("%s: successfully deleted %d refs\n and %d bytes", repo, len(deleted.Manifests), deleted.Size)
 
 	return deleted, http.StatusOK, nil
 }
@@ -224,6 +232,7 @@ type pubsubMessage struct {
 type cleanResp struct {
 	Count int      `json:"count"`
 	Refs  []string `json:"refs"`
+	Size  uint64   `json:"size"`
 }
 
 type errorResp struct {

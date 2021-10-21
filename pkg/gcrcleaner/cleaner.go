@@ -38,6 +38,11 @@ type Cleaner struct {
 	concurrency int
 }
 
+type deleteStats struct {
+	Manifests []string
+	Size      uint64
+}
+
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
 func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
@@ -49,7 +54,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since" and
 // higher than the "keep" amount.
-func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, dryRun bool) (*deleteStats, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -63,7 +68,10 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 	pool := workerpool.New(c.concurrency)
 
 	var keepCount = 0
-	var deleted = make([]string, 0, len(tags.Manifests))
+	stats := &deleteStats{
+		make([]string, 0, len(tags.Manifests)),
+		0,
+	}
 	var deletedLock sync.Mutex
 	var errs = make(map[string]error)
 	var errsLock sync.RWMutex
@@ -118,7 +126,8 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 				}
 
 				deletedLock.Lock()
-				deleted = append(deleted, m.Digest)
+				stats.Manifests = append(stats.Manifests, m.Digest)
+				stats.Size += m.Info.Size
 				deletedLock.Unlock()
 			})
 		}
@@ -142,7 +151,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 			len(errStrings), strings.Join(errStrings, ", "))
 	}
 
-	return deleted, nil
+	return stats, nil
 }
 
 type manifest struct {

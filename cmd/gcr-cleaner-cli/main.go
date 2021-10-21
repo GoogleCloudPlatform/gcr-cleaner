@@ -125,7 +125,7 @@ func realMain(ctx context.Context) error {
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
-		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
+		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n and %d bytes", repo, len(deleted.Manifests), deleted.Size)
 	}
 	return result.ErrorOrNil()
 }
