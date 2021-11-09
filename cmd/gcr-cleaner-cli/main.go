@@ -36,14 +36,15 @@ var (
 	stdout = os.Stdout
 	stderr = os.Stderr
 
-	tokenPtr       = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	repoPtr        = flag.String("repo", "", "Repository name")
-	recursivePtr   = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
-	gracePtr       = flag.Duration("grace", 0, "Grace period")
-	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
-	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
-	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
-	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	tokenPtr            = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
+	repoPtr             = flag.String("repo", "", "Repository name")
+	recursivePtr        = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
+	gracePtr            = flag.Duration("grace", 0, "Grace period")
+	allowTaggedPtr      = flag.Bool("allow-tagged", false, "Delete tagged images")
+	keepPtr             = flag.Int("keep", 0, "Minimum to keep")
+	tagFilterPtr        = flag.String("tag-filter", "", "Tags pattern to clean")
+	inverseTagFilterPtr = flag.Bool("inverse-tag-filter", false, "Delete all tags that do not match with the -tag-filter pattern")
+	dryRunPtr           = flag.Bool("dry-run", false, "Do a noop on delete api call")
 )
 
 func main() {
@@ -72,6 +73,10 @@ func realMain(ctx context.Context) error {
 	tagFilterRegexp, err := regexp.Compile(*tagFilterPtr)
 	if err != nil {
 		return fmt.Errorf("failed to parse -tag-filter: %w", err)
+	}
+
+	if *tagFilterPtr == "" && *inverseTagFilterPtr {
+		return fmt.Errorf("-tag-filter must be declared when -inverse-tag-filter is true")
 	}
 
 	// Try to find the "best" authentication.
@@ -121,7 +126,7 @@ func realMain(ctx context.Context) error {
 	var result *multierror.Error
 	for _, repo := range repositories {
 		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
-		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
+		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *inverseTagFilterPtr, *dryRunPtr)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}

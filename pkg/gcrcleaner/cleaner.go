@@ -49,7 +49,7 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since" and
 // higher than the "keep" amount.
-func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, inverseTagFilterPtr bool, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -79,7 +79,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 	})
 
 	for _, m := range manifests {
-		if c.shouldDelete(m.Info, since, allowTagged, tagFilterRegexp) {
+		if c.shouldDelete(m.Info, since, allowTagged, tagFilterRegexp, inverseTagFilterPtr) {
 			// Keep a certain amount of images
 			if keepCount < keep {
 				keepCount++
@@ -166,8 +166,27 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference, dryRun bool) error {
 
 // shouldDelete returns true if the manifest has no tags or allows deletion of tagged images
 // and is before the requested time.
-func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp) bool {
-	return (len(m.Tags) == 0 || (allowTag && tagFilterRegexp.MatchString(m.Tags[0]))) && m.Uploaded.UTC().Before(since)
+func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp, inverseTagFilter bool) bool {
+	var isUploadedBefore = m.Uploaded.UTC().Before(since)
+
+	// No tags or not within desired time frame, exit early
+	if len(m.Tags) == 0 || !allowTag || !isUploadedBefore {
+		return isUploadedBefore
+	}
+
+	var matchesTag = false
+	for _, tag := range m.Tags {
+		matchesTag = tagFilterRegexp.MatchString(tag)
+		if matchesTag {
+			break
+		}
+	}
+
+	if inverseTagFilter {
+		return !matchesTag
+	} else {
+		return matchesTag
+	}
 }
 
 func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository string) ([]string, error) {

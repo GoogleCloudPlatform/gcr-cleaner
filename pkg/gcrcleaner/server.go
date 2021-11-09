@@ -157,7 +157,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) ([]string, int, err
 	// Do the deletion.
 	deleted := make([]string, 0, len(repositories))
 	for _, repo := range repositories {
-		childrenDeleted, err := s.cleaner.Clean(repo, since, p.AllowTagged, p.Keep, tagFilterRegexp, p.DryRun)
+		childrenDeleted, err := s.cleaner.Clean(repo, since, p.AllowTagged, p.Keep, tagFilterRegexp, p.InverseTagFilter, p.DryRun)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}
@@ -204,6 +204,10 @@ type Payload struct {
 
 	// TagFilter is the tags pattern to be allowed removing.
 	TagFilter string `json:"tag_filter"`
+
+	// InverseTagFilter is a Boolean value determine if TagFilter match should
+	// be inverted / negated.
+	InverseTagFilter bool `json:"inverse_tag_filter"`
 
 	// DryRun instructs the server to not perform actual cleaning. The response
 	// will include repositories that would have been deleted.
