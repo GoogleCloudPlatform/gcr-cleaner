@@ -23,6 +23,8 @@ import (
 	"os/signal"
 	"regexp"
 	"runtime"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,8 +38,9 @@ var (
 	stdout = os.Stdout
 	stderr = os.Stderr
 
+	reposMap = make(map[string]struct{}, 4)
+
 	tokenPtr       = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	repoPtr        = flag.String("repo", "", "Repository name")
 	recursivePtr   = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
 	gracePtr       = flag.Duration("grace", 0, "Grace period")
 	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
@@ -50,6 +53,14 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	flag.Func("repo", "Repository name", func(s string) error {
+		parts := strings.Split(s, ",")
+		for _, p := range parts {
+			reposMap[strings.TrimSpace(p)] = struct{}{}
+		}
+		return nil
+	})
+
 	flag.Parse()
 
 	if err := realMain(ctx); err != nil {
@@ -61,9 +72,19 @@ func main() {
 }
 
 func realMain(ctx context.Context) error {
-	if *repoPtr == "" {
+	if args := flag.Args(); len(args) > 0 {
+		return fmt.Errorf("expected zero arguments, got %d: %q", len(args), args)
+	}
+
+	if len(reposMap) == 0 {
 		return fmt.Errorf("missing -repo")
 	}
+
+	repos := make([]string, 0, len(reposMap))
+	for k := range reposMap {
+		repos = append(repos, k)
+	}
+	sort.Strings(repos)
 
 	if !*allowTaggedPtr && *tagFilterPtr != "" {
 		return fmt.Errorf("-allow-tagged must be true when -tag-filter is declared")
@@ -101,31 +122,45 @@ func realMain(ctx context.Context) error {
 	since := time.Now().UTC().Add(sub)
 
 	// Gather the repositories
-	var repositories = make([]string, 0)
-	repositories = append(repositories, *repoPtr)
 	if *recursivePtr {
-		childRepos, err := cleaner.ListChildRepositories(ctx, *repoPtr)
-		if err != nil {
-			return err
+		for _, repo := range repos {
+			childRepos, err := cleaner.ListChildRepositories(ctx, repo)
+			if err != nil {
+				return err
+			}
+			repos = append(repos, childRepos...)
 		}
-		repositories = append(repositories, childRepos...)
 	}
 
 	// Log dry-run mode.
 	if *dryRunPtr {
-		fmt.Fprintf(stderr, "WARNING: Running in dry run mode! Nothing will "+
-			"actually be cleaned.")
+		fmt.Fprintf(stderr, "WARNING: Running in dry-run mode - nothing will "+
+			"actually be cleaned!\n\n")
 	}
+
+	fmt.Fprintf(stdout, "Deleting refs since %s on %d repo(s)...\n\n",
+		since.Format(time.RFC3339), len(repos))
 
 	// Do the deletion.
 	var result *multierror.Error
-	for _, repo := range repositories {
-		fmt.Fprintf(stdout, "%s: deleting refs since %s\n", repo, since)
+	for i, repo := range repos {
+		fmt.Fprintf(stdout, "%s\n", repo)
 		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
-		fmt.Fprintf(stdout, "%s: successfully deleted %d refs\n", repo, len(deleted))
+
+		if len(deleted) > 0 {
+			for _, val := range deleted {
+				fmt.Fprintf(stdout, "  ✓ %s\n", val)
+			}
+		} else {
+			fmt.Fprintf(stdout, "  ✗ no refs were deleted\n")
+		}
+
+		if i != len(repos)-1 {
+			fmt.Fprintf(stdout, "\n")
+		}
 	}
 	return result.ErrorOrNil()
 }
