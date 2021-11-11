@@ -47,8 +47,8 @@ func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
 	}, nil
 }
 
-// Clean deletes old images from GCR that are (un)tagged and older than "since" and
-// higher than the "keep" amount.
+// Clean deletes old images from GCR that are (un)tagged and older than "since"
+// and higher than the "keep" amount.
 func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int, tagFilterRegexp *regexp.Regexp, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
@@ -89,9 +89,15 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 			// Deletes all tags before deleting the image
 			for _, tag := range m.Info.Tags {
 				tagged := gcrrepo.Tag(tag)
-				if err := c.deleteOne(tagged, dryRun); err != nil {
-					return nil, fmt.Errorf("failed to delete %s: %w", tagged, err)
+				if !dryRun {
+					if err := c.deleteOne(tagged); err != nil {
+						return nil, fmt.Errorf("failed to delete %s: %w", tagged, err)
+					}
 				}
+
+				deletedLock.Lock()
+				deleted = append(deleted, tagged.Identifier())
+				deletedLock.Unlock()
 			}
 
 			ref := gcrrepo.Digest(m.Digest)
@@ -105,16 +111,18 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 				}
 				errsLock.RUnlock()
 
-				if err := c.deleteOne(ref, dryRun); err != nil {
-					cause := errors.Unwrap(err).Error()
+				if !dryRun {
+					if err := c.deleteOne(ref); err != nil {
+						cause := errors.Unwrap(err).Error()
 
-					errsLock.Lock()
-					if _, ok := errs[cause]; !ok {
-						errs[cause] = err
+						errsLock.Lock()
+						if _, ok := errs[cause]; !ok {
+							errs[cause] = err
+							errsLock.Unlock()
+							return
+						}
 						errsLock.Unlock()
-						return
 					}
-					errsLock.Unlock()
 				}
 
 				deletedLock.Lock()
@@ -142,6 +150,8 @@ func (c *Cleaner) Clean(repo string, since time.Time, allowTagged bool, keep int
 			len(errStrings), strings.Join(errStrings, ", "))
 	}
 
+	sort.Strings(deleted)
+
 	return deleted, nil
 }
 
@@ -151,12 +161,7 @@ type manifest struct {
 }
 
 // deleteOne deletes a single repo ref using the supplied auth.
-func (c *Cleaner) deleteOne(ref gcrname.Reference, dryRun bool) error {
-	if dryRun {
-		fmt.Printf("[dry-run] would delete: %s\n", ref)
-		return nil
-	}
-
+func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
 	if err := gcrremote.Delete(ref, gcrremote.WithAuth(c.auther)); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", ref, err)
 	}
