@@ -169,10 +169,20 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
 	return nil
 }
 
-// shouldDelete returns true if the manifest has no tags or allows deletion of tagged images
-// and is before the requested time.
+// shouldDelete returns true if the manifest has no tags or allows deletion of tagged images,
+// all tags match the tag filter, and is before the requested time.
 func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, allowTag bool, tagFilterRegexp *regexp.Regexp) bool {
-	return (len(m.Tags) == 0 || (allowTag && tagFilterRegexp.MatchString(m.Tags[0]))) && m.Uploaded.UTC().Before(since)
+	if len(m.Tags) == 0 || (allowTag && m.Uploaded.UTC().Before(since)) {
+		// apply filter on all tags
+		for _, t := range m.Tags {
+			if !tagFilterRegexp.MatchString(t) {
+				return false
+			}
+		}
+		// return true if all tags matches the filter
+		return true
+	}
+	return false
 }
 
 func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository string) ([]string, error) {
