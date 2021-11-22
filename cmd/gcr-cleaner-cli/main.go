@@ -56,7 +56,9 @@ func main() {
 	flag.Func("repo", "Repository name", func(s string) error {
 		parts := strings.Split(s, ",")
 		for _, p := range parts {
-			reposMap[strings.TrimSpace(p)] = struct{}{}
+			if t := strings.TrimSpace(p); t != "" {
+				reposMap[t] = struct{}{}
+			}
 		}
 		return nil
 	})

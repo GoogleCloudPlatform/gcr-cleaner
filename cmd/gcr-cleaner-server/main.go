@@ -17,7 +17,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,8 +29,7 @@ import (
 )
 
 func main() {
-	// Disable timestamps in go logs because stackdriver has them already.
-	log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
+	logger := gcrcleaner.NewLogger(os.Stderr, os.Stdout)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -46,19 +44,19 @@ func main() {
 		var err error
 		auther, err = gcrgoogle.NewEnvAuthenticator()
 		if err != nil {
-			log.Fatalf("failed to setup auther: %s", err)
+			logger.Fatal("failed to setup auther", "error", err)
 		}
 	}
 
 	concurrency := runtime.NumCPU()
 	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
 	if err != nil {
-		log.Fatalf("failed to create cleaner: %s", err)
+		logger.Fatal("failed to create cleaner", "error", err)
 	}
 
 	cleanerServer, err := gcrcleaner.NewServer(cleaner)
 	if err != nil {
-		log.Fatalf("failed to create server: %s", err)
+		logger.Fatal("failed to create server", "error", err)
 	}
 
 	cache := gcrcleaner.NewTimerCache(5 * time.Minute)
@@ -73,9 +71,9 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("server is listening on %s\n", port)
+		logger.Debug("server is listening", "port", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server exited: %s", err)
+			logger.Fatal("server exited", "error", err)
 		}
 	}()
 
@@ -84,11 +82,11 @@ func main() {
 
 	<-signalCh
 
-	log.Printf("received stop, shutting down")
+	logger.Info("server received stop, shutting down")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("failed to shutdown server: %s", err)
+		logger.Fatal("failed to shutdown server", "error", err)
 	}
 }

@@ -85,6 +85,15 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
     gs://eu.artifacts.${PROJECT_ID}.appspot.com
     ```
 
+    If you plan on using the `recursive` functionality, you must also grant the
+    service account "Browser" permissions:
+
+    ```sh
+    gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+      --member "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
+      --role "roles/browser"
+    ```
+
 1. Create a service account with permission to invoke the Cloud Run service:
 
     ```sh
@@ -128,14 +137,14 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
       --project ${PROJECT_ID} \
       --description "Cleanup ${REPO}" \
       --uri "${SERVICE_URL}/http" \
-      --message-body "{\"repo\":\"${REPO}\"}" \
+      --message-body "{\"repos\":[\"${REPO}\"]}" \
       --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
       --schedule "0 8 * * 2" \
       --time-zone="US/Eastern"
     ```
 
-    You can create multiple Cloud Scheduler instances against the same Cloud Run
-    service with different payloads to clean multiple GCR repositories.
+    You can create specify multiple repositories in the list to clean more than
+    one repository.
 
 1. _(Optional)_ Run the scheduled job now:
 
@@ -152,8 +161,8 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
 
 The payload is expected to be JSON with the following fields:
 
-- `repo` - Full name of the repository to clean, in the format
-  `gcr.io/project/repo`. This field is required.
+- `repos` - List of the full names of the repositories to clean (e.g.
+  `["gcr.io/project/repo"]`. This field is required.
 
 - `grace` - Relative duration in which to ignore references. This value is
   specified as a time duration value like "5s" or "3h". If set, refs newer than
@@ -175,6 +184,15 @@ The payload is expected to be JSON with the following fields:
   have been deleted.
 
 - `recursive` - If set to true, will recursively search all child repositories.
+
+    **NOTE!** On Container Registry, you must grant additional permissions to
+    the service account in order to query the registry. The most minimal
+    permissions are `roles/browser`.
+
+    **WARNING!** If you have access to many Container Registry repos, this will
+    be very slow! This is because the Docker v2 API does not support server-side
+    filtering, meaning GCR Cleaner must download a manifest of all repositories
+    to which you have access and then do client-side filtering.
 
 ## Running locally
 
@@ -202,11 +220,6 @@ us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 :package: You can deploy the stack using the community-supported Terraform module [gcr-cleaner](https://registry.terraform.io/modules/mirakl/gcr-cleaner/google/latest#usage):
 
 ## FAQ
-
-**How do I clean up multiple Google Container Registry repos at once?**
-<br>
-To clean multiple repos, create a Cloud Scheduler job for each repo, altering
-the payload to use the correct repo.
 
 **Does it work with Cloud Pub/Sub?**
 <br>
