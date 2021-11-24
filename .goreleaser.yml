@@ -1,0 +1,49 @@
+builds:
+  - env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -extldflags "-static"
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goarch:
+      - amd64
+    binary: gcr-cleaner-{{.Version}}
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+dockers:
+  - goos: linux
+    goarch: amd64
+    # Templates of the Docker image names.
+    image_templates:
+    - "gcr.io/gcr-cleaner/gcr-cleaner:{{ .Version }}"
+    - "asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner:{{ .Version }}"
+    - "europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner:{{ .Version }}"
+    - "us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner:{{ .Version }}"
+
+    # Skips the docker push. Could be useful if you also do draft releases.
+    # If set to auto, the release will not be pushed to the docker repository
+    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
+    # Defaults to false.
+    skip_push: false
+
+    # Path to the Dockerfile (from the project root).
+    dockerfile: Dockerfile
+
+    # Template of the docker build flags.
+    build_flag_templates:
+    - "--build-arg=VERSION={{ .Version }}"

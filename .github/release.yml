@@ -1,0 +1,38 @@
+name: Release
+
+# Triggered only when a tag is pushed
+on:
+  push:
+    branches:
+      - "!*"
+    tags:
+      - "v*"
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: goreleaser
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      - name: Docker Login
+        run: echo $GCLOUD_SERVICE_KEY | base64 -d | docker login -u _json_key --password-stdin https://gcr.io/
+        env:
+          GCLOUD_SERVICE_KEY: '${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}'
+
+      - name: Release the application
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --rm-dist --debug
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
