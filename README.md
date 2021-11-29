@@ -90,7 +90,7 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
 
     ```sh
     gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-      --member "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
+      --member "serviceAccount:gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
       --role "roles/browser"
     ```
 
