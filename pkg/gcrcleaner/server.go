@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -144,9 +143,9 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	}
 
 	since := time.Now().UTC().Add(sub)
-	tagFilterRegexp, err := regexp.Compile(p.TagFilter)
+	tagFilter, err := BuildTagFilter(p.TagFilterFirst, p.TagFilterAny, p.TagFilterAll)
 	if err != nil {
-		return nil, http.StatusBadRequest, fmt.Errorf("failed to parse tag_filter %q: %w", p.TagFilter, err)
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to build tag filter: %w", err)
 	}
 
 	// Gather all the repositories.
@@ -179,7 +178,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	for _, repo := range repos {
 		s.logger.Debug("deleting refs for repo", "repo", repo)
 
-		childrenDeleted, err := s.cleaner.Clean(repo, since, p.AllowTagged, p.Keep, tagFilterRegexp, p.DryRun)
+		childrenDeleted, err := s.cleaner.Clean(repo, since, p.Keep, tagFilter, p.DryRun)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}
@@ -225,15 +224,20 @@ type Payload struct {
 	// given to new, untagged layers. The default is no grace.
 	Grace duration `json:"grace"`
 
-	// AllowTagged is a Boolean value determine if tagged images are allowed
-	// to be deleted.
-	AllowTagged bool `json:"allow_tagged"`
-
 	// Keep is the minimum number of images to keep.
 	Keep int `json:"keep"`
 
-	// TagFilter is the tags pattern to be allowed removing.
-	TagFilter string `json:"tag_filter"`
+	// TagFilterAny is the tags pattern to be allowed removing. If given, any
+	// image with at least one tag that matches this given regular expression will
+	// be deleted. The image will be deleted even if it has other tags that do not
+	// match the given regular expression.
+	TagFilterAny string `json:"tag_filter_any"`
+
+	// TagFilterAll is the tags pattern to be allowed removing. If given, any
+	// image where all tags match this given regular expression will be deleted.
+	// The image will not be delete if it has other tags that do not match the
+	// given regular expression.
+	TagFilterAll string `json:"tag_filter_all"`
 
 	// DryRun instructs the server to not perform actual cleaning. The response
 	// will include repositories that would have been deleted.
@@ -241,6 +245,20 @@ type Payload struct {
 
 	// Recursive enables cleaning all child repositories.
 	Recursive bool `json:"recursive"`
+
+	// TagFilterFirst is the tags pattern to be allowed removing. If specified, any
+	// images where the first tag matches the given regular expression will be
+	// deleted.
+	//
+	// Deprecated: Use tag_filter_all or tag_filter_any instead.
+	TagFilterFirst string `json:"tag_filter"`
+
+	// AllowTagged is a Boolean value determine if tagged images are allowed to be
+	// deleted.
+	//
+	// Deprecated: Use tag_filter_all or tag_filter_any instead. Setting either of
+	// these values enables deleting tagged images.
+	AllowTagged bool `json:"allow_tagged"`
 }
 
 type pubsubMessage struct {

@@ -1,6 +1,6 @@
 # GCR Cleaner
 
-GCR Cleaner deletes untagged images in Google Cloud [Container
+GCR Cleaner deletes stale images in Google Cloud [Container
 Registry][container-registry] or Google Cloud [Artifact
 Registry][artifact-registry]. This can help reduce costs and keep your container
 images list in order.
@@ -169,16 +169,19 @@ The payload is expected to be JSON with the following fields:
   the duration will not be deleted. If unspecified, the default is no grace
   period (all untagged image refs are deleted).
 
-- `allow_tagged` - If set to true, will check all images including tagged.
-  If unspecified, the default will only delete untagged images.
-
 - `keep` - If an integer is provided, it will always keep that minimum number
   of images. Note that it will not consider images inside the `grace` duration.
 
-- `tag_filter` - Used for tags regexp definition to define pattern to clean,
-  requires `allow_tagged` must be true. For example: use `-tag-filter "^dev.+$"`
-  to limit cleaning only on the tags with beginning with is `dev`. The default
-  is no filtering. The regular expression is parsed according to the [Go regexp package syntax](https://golang.org/pkg/regexp/syntax/).
+- `tag_filter_any` - If specified, any image with at **least one tag** that
+  matches this given regular expression will be deleted. The image will be
+  deleted even if it has other tags that do not match the given regular
+  expression. The regular expressions are parsed according to the [Go regexp
+  package][go-re].
+
+- `tag_filter_all` - If specified, any image where **all tags** match this given
+  regular expression will be deleted. The image will not be delete if it has
+  other tags that do not match the given regular expression. The regular
+  expressions are parsed according to the [Go regexp package][go-re].
 
 - `dry_run` - If set to true, will not delete anything and outputs what would
   have been deleted.
@@ -193,6 +196,19 @@ The payload is expected to be JSON with the following fields:
     be very slow! This is because the Docker v2 API does not support server-side
     filtering, meaning GCR Cleaner must download a manifest of all repositories
     to which you have access and then do client-side filtering.
+
+- `tag_filter` (_Deprecated_) - This option is deprecated and only exists to
+  maintain backwards compatibility with some existing broken behavior. You
+  should not use it. If specified, any image where **the first tag** matches
+  this given regular expression will be deleted. The image will not be deleted
+  if other tags match the regular expression. The regular expressions are parsed
+  according to the [Go regexp package][go-re].
+
+- `allow_tagged` (_Deprecated_) - This option is deprecated and has no effect.
+  By default, GCR Cleaner will not delete tagged images. To delete tagged
+  images, specify `tag_filter_any` or `tag_filter_all`. Specifying either of
+  these will enable deletion by tag.
+
 
 ## Running locally
 
@@ -246,3 +262,4 @@ This library is licensed under Apache 2.0. Full license text is available in
 [container-registry]: https://cloud.google.com/container-registry
 [gcr-cleaner-godoc]: https://godoc.org/github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner
 [gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
+[go-re]: https://golang.org/pkg/regexp/syntax/
