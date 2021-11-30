@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -40,13 +39,18 @@ var (
 
 	reposMap = make(map[string]struct{}, 4)
 
-	tokenPtr       = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	recursivePtr   = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
-	gracePtr       = flag.Duration("grace", 0, "Grace period")
-	allowTaggedPtr = flag.Bool("allow-tagged", false, "Delete tagged images")
-	keepPtr        = flag.Int("keep", 0, "Minimum to keep")
-	tagFilterPtr   = flag.String("tag-filter", "", "Tags pattern to clean")
-	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	tokenPtr     = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
+	recursivePtr = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
+	gracePtr     = flag.Duration("grace", 0, "Grace period")
+	tagFilterAny = flag.String("tag-filter-any", "", "With -allow-tagged, delete images where any tag matches this regular expression")
+	tagFilterAll = flag.String("tag-filter-all", "", "With -allow-tagged, delete images where all tags match this regular expression")
+	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
+	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
+
+	// tagFilterPtr and allow-tagged are deprecated
+	// TODO(sethvargo): remove before 1.0.0
+	allowTaggedPtr    = flag.Bool("allow-tagged", false, "DEPRECATED: Delete tagged images")
+	tagFilterFirstPtr = flag.String("tag-filter", "", "DEPRECATED: Tags pattern to clean")
 )
 
 func main() {
@@ -62,6 +66,22 @@ func main() {
 		}
 		return nil
 	})
+
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprintf(w, "Usage of %s:\n\n", os.Args[0])
+		fmt.Fprintf(w, "  Deletes untagged or stale images from a Docker registry.\n\n")
+		fmt.Fprintf(w, "Options:\n\n")
+
+		flag.VisitAll(func(f *flag.Flag) {
+			if strings.HasPrefix(f.Usage, "DEPRECATED") {
+				return
+			}
+
+			fmt.Fprintf(w, "  -%v\n", f.Name)
+			fmt.Fprintf(w, "      %s\n\n", f.Usage)
+		})
+	}
 
 	flag.Parse()
 
@@ -88,13 +108,16 @@ func realMain(ctx context.Context) error {
 	}
 	sort.Strings(repos)
 
-	if !*allowTaggedPtr && *tagFilterPtr != "" {
-		return fmt.Errorf("-allow-tagged must be true when -tag-filter is declared")
+	if *allowTaggedPtr {
+		fmt.Fprintf(stderr, "DEPRECATION: -allow-tagged is deprecated, specifying any tags will enable deleting of tagged images\n")
+	}
+	if *tagFilterFirstPtr != "" {
+		fmt.Fprintf(stderr, "DEPRECATION: -tag-filter is deprecated, use -tag-filter-any or -tag-filter-all instead\n")
 	}
 
-	tagFilterRegexp, err := regexp.Compile(*tagFilterPtr)
+	tagFilter, err := gcrcleaner.BuildTagFilter(*tagFilterFirstPtr, *tagFilterAny, *tagFilterAll)
 	if err != nil {
-		return fmt.Errorf("failed to parse -tag-filter: %w", err)
+		return fmt.Errorf("failed to parse tag filter: %w", err)
 	}
 
 	// Try to find the "best" authentication.
@@ -147,7 +170,7 @@ func realMain(ctx context.Context) error {
 	var result *multierror.Error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(repo, since, *allowTaggedPtr, *keepPtr, tagFilterRegexp, *dryRunPtr)
+		deleted, err := cleaner.Clean(repo, since, *keepPtr, tagFilter, *dryRunPtr)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
