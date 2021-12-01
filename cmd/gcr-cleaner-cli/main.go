@@ -42,8 +42,8 @@ var (
 	tokenPtr     = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
 	recursivePtr = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
 	gracePtr     = flag.Duration("grace", 0, "Grace period")
-	tagFilterAny = flag.String("tag-filter-any", "", "With -allow-tagged, delete images where any tag matches this regular expression")
-	tagFilterAll = flag.String("tag-filter-all", "", "With -allow-tagged, delete images where all tags match this regular expression")
+	tagFilterAny = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
+	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
 	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
 	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
 
