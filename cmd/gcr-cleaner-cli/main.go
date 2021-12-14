@@ -163,7 +163,7 @@ func realMain(ctx context.Context) error {
 			"actually be cleaned!\n\n")
 	}
 
-	fmt.Fprintf(stdout, "Deleting refs since %s on %d repo(s)...\n\n",
+	fmt.Fprintf(stdout, "Deleting refs older than %s on %d repo(s)...\n\n",
 		since.Format(time.RFC3339), len(repos))
 
 	// Do the deletion.
