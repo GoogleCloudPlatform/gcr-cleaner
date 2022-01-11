@@ -218,6 +218,9 @@ In addition to the server, you can also run GCR Cleaner locally for one-off task
 docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
 ```
 
+You can use the environmental variable `GCRCLEANER_TOKEN` to specify the 
+authentication token.
+
 ## I just want the container!
 
 You can build the container yourself using the included Dockerfile.

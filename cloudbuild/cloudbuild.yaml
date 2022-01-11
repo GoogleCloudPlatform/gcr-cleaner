@@ -17,6 +17,7 @@ steps:
   name: 'docker:19'
   args: [
     'build',
+    '--file', 'Dockerfile.cli',
     '--build-arg', 'SERVICE=gcr-cleaner-cli',
     '--tag', 'gcr.io/${PROJECT_ID}/gcr-cleaner-cli',
     '--tag', 'asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
@@ -30,6 +31,7 @@ steps:
   name: 'docker:19'
   args: [
     'build',
+    '--file', 'Dockerfile.server',
     '--build-arg', 'SERVICE=gcr-cleaner-server',
     '--tag', 'gcr.io/${PROJECT_ID}/gcr-cleaner',
     '--tag', 'asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',

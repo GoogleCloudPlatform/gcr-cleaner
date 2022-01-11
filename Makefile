@@ -14,7 +14,7 @@
 
 docker-push:
 	@gcloud builds submit \
-		--project "gcr-cleaner" \
+		--project "keebo-integration" \
 		--config ./cloudbuild/cloudbuild.yaml \
 		.
 .PHONY: docker-push
