@@ -99,7 +99,8 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 				deletedLock.Unlock()
 			}
 
-			ref := gcrrepo.Digest(m.Digest)
+			digest := m.Digest
+			ref := gcrrepo.Digest(digest)
 			pool.Submit(func() {
 				// Do not process if previous invocations failed. This prevents a large
 				// build-up of failed requests and rate limit exceeding (e.g. bad auth).
@@ -125,7 +126,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 				}
 
 				deletedLock.Lock()
-				deleted = append(deleted, m.Digest)
+				deleted = append(deleted, digest)
 				deletedLock.Unlock()
 			})
 		}
