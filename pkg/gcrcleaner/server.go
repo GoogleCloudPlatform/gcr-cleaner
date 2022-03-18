@@ -56,8 +56,6 @@ func NewServer(cleaner *Cleaner) (*Server, error) {
 // unless the pubsub message is malformed.
 func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
 		var m pubsubMessage
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			err = fmt.Errorf("failed to decode pubsub message: %w", err)
@@ -84,6 +82,9 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 		// Start a goroutine to delete the images
 		body := ioutil.NopCloser(bytes.NewReader(m.Message.Data))
 		go func() {
+			// Intentionally don't use the request context, since it terminates but
+			// the background job should still be processing.
+			ctx := context.Background()
 			if _, _, err := s.clean(ctx, body); err != nil {
 				s.logger.Error("failed to clean", "error", err)
 			}
