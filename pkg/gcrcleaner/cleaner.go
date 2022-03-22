@@ -79,6 +79,8 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 
 	for _, m := range manifests {
 		if c.shouldDelete(m.Info, since, tagFilter) {
+			// Store copy of manifest for thread safety in delete job pool
+			m := m
 			// Keep a certain amount of images
 			if keepCount < keep {
 				keepCount++
