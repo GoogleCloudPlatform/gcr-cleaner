@@ -66,33 +66,47 @@ invoked periodically via [Cloud Scheduler][cloud-scheduler].
       --timeout "60s"
     ```
 
-1. Grant the service account access to delete references in Google Container
-   Registry (which stores container image laters in a Cloud Storage bucket):
+1. Grant the service account access to delete references.
 
-    ```sh
-    gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
-    ```
+    - For **Container Registry**:
 
-    To cleanup refs in _other_ GCP projects, replace `PROJECT_ID` with the
-    target project ID. For example, if the Cloud Run service was running in
-    "project-a" and you wanted to grant it permission to cleanup refs in
-    "gcr.io/project-b/image", you would need to grant the Cloud Run service
-    account in project-a permission on `artifacts.projects-b.appspot.com`.
+        ```sh
+        gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
+        ```
 
-    To clean up Container Registry images hosted in specific regions, update the bucket name to include the region:
+        To cleanup refs in _other_ GCP projects, replace `PROJECT_ID` with the
+        target project ID. For example, if the Cloud Run service was running in
+        "project-a" and you wanted to grant it permission to cleanup refs in
+        "gcr.io/project-b/image", you would need to grant the Cloud Run service
+        account in project-a permission on `artifacts.projects-b.appspot.com`.
 
-    ```text
-    gs://eu.artifacts.${PROJECT_ID}.appspot.com
-    ```
+        To clean up Container Registry images hosted in specific regions, update the bucket name to include the region:
 
-    If you plan on using the `recursive` functionality, you must also grant the
-    service account "Browser" permissions:
+        ```text
+        gs://eu.artifacts.${PROJECT_ID}.appspot.com
+        ```
 
-    ```sh
-    gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-      --member "serviceAccount:gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --role "roles/browser"
-    ```
+        If you plan on using the `recursive` functionality, you must also grant the
+        service account "Browser" permissions:
+
+        ```sh
+        gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+          --member "serviceAccount:gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
+          --role "roles/browser"
+        ```
+
+    - For **Artifact Registry**:
+
+        ```sh
+        gcloud artifacts repositories add-iam-policy-binding "${REPO_NAME}" \
+            --project "${PROJECT_ID}" \
+            --location "${LOCATION}" \
+            --member "serviceAccount:gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
+            --role "roles/artifactregistry.repoAdmin"
+        ```
+
+        Where "REPO_NAME" is the name of the Artifact Registry repository and
+        "LOCATION" is the geographic location.
 
 1. Create a service account with permission to invoke the Cloud Run service:
 
