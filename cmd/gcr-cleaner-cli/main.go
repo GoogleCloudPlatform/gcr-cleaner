@@ -36,7 +36,13 @@ import (
 var (
 	stdout = os.Stdout
 	stderr = os.Stderr
+)
 
+var (
+	logLevel = os.Getenv("GCRCLEANER_LOG")
+)
+
+var (
 	reposMap = make(map[string]struct{}, 4)
 
 	tokenPtr     = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
@@ -54,6 +60,8 @@ var (
 )
 
 func main() {
+	logger := gcrcleaner.NewLogger(logLevel, stderr, stdout)
+
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -85,7 +93,7 @@ func main() {
 
 	flag.Parse()
 
-	if err := realMain(ctx); err != nil {
+	if err := realMain(ctx, logger); err != nil {
 		cancel()
 
 		fmt.Fprintf(stderr, "%s\n", err)
@@ -93,7 +101,7 @@ func main() {
 	}
 }
 
-func realMain(ctx context.Context) error {
+func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	if args := flag.Args(); len(args) > 0 {
 		return fmt.Errorf("expected zero arguments, got %d: %q", len(args), args)
 	}
@@ -123,8 +131,10 @@ func realMain(ctx context.Context) error {
 	// Try to find the "best" authentication.
 	var auther gcrauthn.Authenticator
 	if *tokenPtr != "" {
+		logger.Debug("using token from flag for authentication")
 		auther = &gcrauthn.Bearer{Token: *tokenPtr}
 	} else {
+		logger.Debug("using default token resolution for authentication")
 		var err error
 		auther, err = gcrgoogle.NewEnvAuthenticator()
 		if err != nil {
@@ -133,7 +143,7 @@ func realMain(ctx context.Context) error {
 	}
 
 	concurrency := runtime.NumCPU()
-	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
+	cleaner, err := gcrcleaner.NewCleaner(auther, logger, concurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
 	}
@@ -148,6 +158,7 @@ func realMain(ctx context.Context) error {
 
 	// Gather the repositories
 	if *recursivePtr {
+		logger.Debug("gathering child repositories recursively")
 		for _, repo := range repos {
 			childRepos, err := cleaner.ListChildRepositories(ctx, repo)
 			if err != nil {

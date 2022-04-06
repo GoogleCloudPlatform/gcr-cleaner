@@ -17,10 +17,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
@@ -28,9 +30,30 @@ import (
 	"github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner"
 )
 
-func main() {
-	logger := gcrcleaner.NewLogger(os.Stderr, os.Stdout)
+var (
+	stdout = os.Stdout
+	stderr = os.Stderr
+)
 
+var (
+	logLevel = os.Getenv("GCRCLEANER_LOG")
+)
+
+func main() {
+	logger := gcrcleaner.NewLogger(logLevel, stderr, stdout)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := realMain(ctx, logger); err != nil {
+		cancel()
+		logger.Fatal("server exited with error", "error", err)
+	}
+
+	logger.Info("server shutdown complete")
+}
+
+func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -39,24 +62,26 @@ func main() {
 
 	var auther gcrauthn.Authenticator
 	if token := os.Getenv("GCRCLEANER_TOKEN"); token != "" {
+		logger.Debug("using token from GCRCLEANER_TOKEN for authentication")
 		auther = &gcrauthn.Bearer{Token: token}
 	} else {
+		logger.Debug("using default token resolution for authentication")
 		var err error
 		auther, err = gcrgoogle.NewEnvAuthenticator()
 		if err != nil {
-			logger.Fatal("failed to setup auther", "error", err)
+			return fmt.Errorf("failed to setup auther: %w", err)
 		}
 	}
 
 	concurrency := runtime.NumCPU()
-	cleaner, err := gcrcleaner.NewCleaner(auther, concurrency)
+	cleaner, err := gcrcleaner.NewCleaner(auther, logger, concurrency)
 	if err != nil {
-		logger.Fatal("failed to create cleaner", "error", err)
+		return fmt.Errorf("failed to create cleaner: %w", err)
 	}
 
 	cleanerServer, err := gcrcleaner.NewServer(cleaner)
 	if err != nil {
-		logger.Fatal("failed to create server", "error", err)
+		return fmt.Errorf("failed to create server: %w", err)
 	}
 
 	cache := gcrcleaner.NewTimerCache(5 * time.Minute)
@@ -70,23 +95,30 @@ func main() {
 		Handler: mux,
 	}
 
+	errCh := make(chan error, 1)
 	go func() {
-		logger.Debug("server is listening", "port", port)
+		logger.Info("server is listening", "port", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("server exited", "error", err)
+			select {
+			case errCh <- err:
+			default:
+			}
 		}
 	}()
 
-	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, os.Interrupt)
-
-	<-signalCh
+	select {
+	case <-ctx.Done():
+	case err := <-errCh:
+		return fmt.Errorf("server exited: %w", err)
+	}
 
 	logger.Info("server received stop, shutting down")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		logger.Fatal("failed to shutdown server", "error", err)
+		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
+
+	return nil
 }

@@ -34,15 +34,17 @@ import (
 // Cleaner is a gcr cleaner.
 type Cleaner struct {
 	auther      gcrauthn.Authenticator
+	logger      *Logger
 	concurrency int
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
-func NewCleaner(auther gcrauthn.Authenticator, c int) (*Cleaner, error) {
+func NewCleaner(auther gcrauthn.Authenticator, logger *Logger, c int) (*Cleaner, error) {
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
+		logger:      logger,
 	}, nil
 }
 
@@ -53,6 +55,8 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
 	}
+	c.logger.Debug("computed repo", "repo", gcrrepo.Name())
+
 	tags, err := gcrgoogle.List(gcrrepo, gcrgoogle.WithAuth(c.auther))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
@@ -67,9 +71,9 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 	var errs = make(map[string]error)
 	var errsLock sync.RWMutex
 
-	var manifests = make([]manifest, 0, len(tags.Manifests))
+	var manifests = make([]*manifest, 0, len(tags.Manifests))
 	for k, m := range tags.Manifests {
-		manifests = append(manifests, manifest{k, m})
+		manifests = append(manifests, &manifest{repo, k, m})
 	}
 
 	// Sort manifest by Created from the most recent to the least
@@ -78,17 +82,35 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 	})
 
 	for _, m := range manifests {
-		if c.shouldDelete(m.Info, since, tagFilter) {
-			// Store copy of manifest for thread safety in delete job pool
-			m := m
+		// Store copy of manifest for thread safety in delete job pool
+		m := m
+
+		c.logger.Debug("processing manifest",
+			"repo", repo,
+			"digest", m.Digest,
+			"tags", m.Info.Tags,
+			"uploaded", m.Info.Uploaded.Format(time.RFC3339))
+
+		if c.shouldDelete(m, since, tagFilter) {
 			// Keep a certain amount of images
 			if keepCount < keep {
+				c.logger.Debug("skipping deletion because of keep count",
+					"repo", repo,
+					"digest", m.Digest,
+					"keep", keep,
+					"keep_count", keepCount)
+
 				keepCount++
 				continue
 			}
 
 			// Deletes all tags before deleting the image
 			for _, tag := range m.Info.Tags {
+				c.logger.Debug("deleting tag",
+					"repo", repo,
+					"digest", m.Digest,
+					"tag", tag)
+
 				tagged := gcrrepo.Tag(tag)
 				if !dryRun {
 					if err := c.deleteOne(tagged); err != nil {
@@ -112,6 +134,10 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 					return
 				}
 				errsLock.RUnlock()
+
+				c.logger.Debug("deleting digest",
+					"repo", repo,
+					"digest", m.Digest)
 
 				if !dryRun {
 					if err := c.deleteOne(ref); err != nil {
@@ -158,6 +184,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 }
 
 type manifest struct {
+	Repo   string
 	Digest string
 	Info   gcrgoogle.ManifestInfo
 }
@@ -173,25 +200,45 @@ func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
 
 // shouldDelete returns true if the manifest was created before the given
 // timestamp and either has no tags or has tags that match the given filter.
-func (c *Cleaner) shouldDelete(m gcrgoogle.ManifestInfo, since time.Time, tagFilter TagFilter) bool {
+func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter) bool {
 	// Immediately exclude images that have been uploaded after the given time.
-	if m.Uploaded.UTC().After(since) {
+	if uploaded := m.Info.Uploaded.UTC(); uploaded.After(since) {
+		c.logger.Debug("should not delete",
+			"repo", m.Repo,
+			"digest", m.Digest,
+			"reason", "too new",
+			"since", since.Format(time.RFC3339),
+			"uploaded", uploaded.Format(time.RFC3339),
+			"delta", uploaded.Sub(since).String())
 		return false
 	}
 
 	// If there are no tags, it should be deleted.
-	if len(m.Tags) == 0 {
+	if len(m.Info.Tags) == 0 {
+		c.logger.Debug("should delete",
+			"repo", m.Repo,
+			"digest", m.Digest,
+			"reason", "no tags")
 		return true
 	}
 
 	// If tagged images are allowed and the given filter matches the list of tags,
 	// this is a deletion candidate. The default tag filter is to reject all
 	// strings.
-	if tagFilter.Matches(m.Tags) {
+	if tagFilter.Matches(m.Info.Tags) {
+		c.logger.Debug("should delete",
+			"repo", m.Repo,
+			"digest", m.Digest,
+			"reason", "matches tag filter",
+			"tag_filter", tagFilter.Name())
 		return true
 	}
 
 	// If we got this far, it'ts not a viable deletion candidate.
+	c.logger.Debug("should not delete",
+		"repo", m.Repo,
+		"digest", m.Digest,
+		"reason", "no filter matches")
 	return false
 }
 

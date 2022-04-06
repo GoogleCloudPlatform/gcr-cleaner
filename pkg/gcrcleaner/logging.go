@@ -19,26 +19,62 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+	"sync"
 	"time"
 )
 
-type Severity string
+type Severity uint8
 
 const (
-	SeverityDebug Severity = "DEBUG"
-	SeverityInfo  Severity = "INFO"
-	SeverityWarn  Severity = "WARNING"
-	SeverityError Severity = "ERROR"
-	SeverityFatal Severity = "EMERGENCY"
+	SeverityDebug Severity = iota
+	SeverityInfo
+	SeverityWarn
+	SeverityError
+	SeverityFatal
+)
+
+var (
+	severityNameMap = map[Severity]string{
+		SeverityDebug: "DEBUG",
+		SeverityInfo:  "INFO",
+		SeverityWarn:  "WARNING",
+		SeverityError: "ERROR",
+		SeverityFatal: "EMERGENCY",
+	}
+
+	nameSeverityMap = map[string]Severity{
+		"DEBUG":     SeverityDebug,
+		"INFO":      SeverityInfo,
+		"WARN":      SeverityWarn,
+		"WARNING":   SeverityWarn,
+		"ERROR":     SeverityError,
+		"FATAL":     SeverityFatal,
+		"EMERGENCY": SeverityFatal,
+	}
 )
 
 type Logger struct {
+	level Severity
+
 	stdout io.Writer
 	stderr io.Writer
+
+	lock sync.Mutex
 }
 
-func NewLogger(outw, errw io.Writer) *Logger {
-	return &Logger{stdout: outw, stderr: errw}
+func NewLogger(level string, outw, errw io.Writer) *Logger {
+	normalized := strings.ToUpper(strings.TrimSpace(level))
+	if normalized == "" {
+		normalized = "INFO"
+	}
+
+	v, ok := nameSeverityMap[normalized]
+	if !ok {
+		panic(fmt.Sprintf("failed to parse level %q: not found", normalized))
+	}
+
+	return &Logger{level: v, stdout: outw, stderr: errw}
 }
 
 func (l *Logger) Debug(msg string, fields ...interface{}) {
@@ -67,6 +103,10 @@ func (l *Logger) log(w io.Writer, msg string, sev Severity, fields ...interface{
 		panic("number of fields must be even")
 	}
 
+	if l.level > sev {
+		return
+	}
+
 	data := make(map[string]interface{}, len(fields)/2)
 	for i := 0; i < len(fields); i += 2 {
 		key, ok := fields[i].(string)
@@ -92,7 +132,9 @@ func (l *Logger) log(w io.Writer, msg string, sev Severity, fields ...interface{
 		panic(fmt.Errorf("failed to marshal log entry: %w", err))
 	}
 
+	l.lock.Lock()
 	fmt.Fprintln(w, string(jsonPayload))
+	l.lock.Unlock()
 }
 
 type LogEntry struct {
@@ -109,7 +151,7 @@ func (l *LogEntry) MarshalJSON() ([]byte, error) {
 		d["time"] = l.Time.Format(time.RFC3339)
 	}
 
-	d["severity"] = string(l.Severity)
+	d["severity"] = severityNameMap[l.Severity]
 	d["message"] = l.Message
 
 	for k, v := range l.Data {

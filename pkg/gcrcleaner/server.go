@@ -22,7 +22,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -47,7 +46,7 @@ func NewServer(cleaner *Cleaner) (*Server, error) {
 
 	return &Server{
 		cleaner: cleaner,
-		logger:  NewLogger(os.Stdout, os.Stderr),
+		logger:  cleaner.logger,
 	}, nil
 }
 
@@ -177,7 +176,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	// Do the deletion.
 	deleted := make(map[string][]string, len(repos))
 	for _, repo := range repos {
-		s.logger.Debug("deleting refs for repo", "repo", repo)
+		s.logger.Info("deleting refs for repo", "repo", repo)
 
 		childrenDeleted, err := s.cleaner.Clean(repo, since, p.Keep, tagFilter, p.DryRun)
 		if err != nil {
