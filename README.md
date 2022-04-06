@@ -232,6 +232,12 @@ In addition to the server, you can also run GCR Cleaner locally for one-off task
 docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
 ```
 
+## Logging
+
+By default, logs are produced at the `info` level. More logs are available at
+the `debug` level. To set the log level, set `GCRCLEANER_LOG=debug`.
+
+
 ## I just want the container!
 
 You can build the container yourself using the included Dockerfile.

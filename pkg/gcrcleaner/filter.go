@@ -22,6 +22,7 @@ import (
 // TagFilter is an interface which defines whether a given set of tags matches
 // the filter.
 type TagFilter interface {
+	Name() string
 	Matches(tags []string) bool
 }
 
@@ -69,12 +70,20 @@ func (f *TagFilterNull) Matches(tags []string) bool {
 	return false
 }
 
+func (f *TagFilterNull) Name() string {
+	return "(none)"
+}
+
 var _ TagFilter = (*TagFilterFirst)(nil)
 
 // TagFilterFirst filters based on the first item in the list. If the list is
 // empty or if the first item does not match the regex, it returns false.
 type TagFilterFirst struct {
 	re *regexp.Regexp
+}
+
+func (f *TagFilterFirst) Name() string {
+	return fmt.Sprintf("first(%s)", f.re.String())
 }
 
 func (f *TagFilterFirst) Matches(tags []string) bool {
@@ -104,12 +113,20 @@ func (f *TagFilterAny) Matches(tags []string) bool {
 	return false
 }
 
+func (f *TagFilterAny) Name() string {
+	return fmt.Sprintf("any(%s)", f.re.String())
+}
+
 var _ TagFilter = (*TagFilterAll)(nil)
 
 // TagFilterAll filters based on the entire list. If all tags in the last match,
 // it returns true. If one more more tags do not match, it returns false.
 type TagFilterAll struct {
 	re *regexp.Regexp
+}
+
+func (f *TagFilterAll) Name() string {
+	return fmt.Sprintf("all(%s)", f.re.String())
 }
 
 func (f *TagFilterAll) Matches(tags []string) bool {
