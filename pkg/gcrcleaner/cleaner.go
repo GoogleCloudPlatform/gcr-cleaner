@@ -246,29 +246,97 @@ func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter
 	return false
 }
 
-func (c *Cleaner) ListChildRepositories(ctx context.Context, rootRepository string) ([]string, error) {
-	rootRepo, err := gcrname.NewRepository(rootRepository)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create repository %s: %w", rootRepository, err)
+// ListChildRepositories lists all child repositores for the given roots. Roots
+// can be entire registries (e.g. us-docker.pkg.dev) or a subpath within a
+// registry (e.g. gcr.io/my-project/my-container).
+func (c *Cleaner) ListChildRepositories(ctx context.Context, roots []string) ([]string, error) {
+	c.logger.Debug("finding all child repositories", "roots", roots)
+
+	// registriesMap is a cache of registries to all the repos in that registry.
+	// Since multiple repos might use the same registry, the result is cached to
+	// limit upstream API calls.
+	registriesMap := make(map[string]*gcrname.Registry, len(roots))
+
+	// Iterate over each root and attempt to extract the registry component. Some
+	// roots will be registries themselves whereas other roots could be a subpath
+	// in a registry and we need to extract just the registry part.
+	for _, root := range roots {
+		registryName := ""
+
+		parts := strings.Split(root, "/")
+		switch len(parts) {
+		case 0:
+			panic("got 0 parts from string split (impossible)")
+		case 1:
+			// Most likely this is a registry, since it contains no slashes.
+			registryName = parts[0]
+		default:
+			repo, err := gcrname.NewRepository(root, gcrname.StrictValidation)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse root repository %q: %w", root, err)
+			}
+
+			registryName = repo.RegistryStr()
+		}
+
+		registry, err := gcrname.NewRegistry(registryName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse registry name %q: %w", registryName, err)
+		}
+		registriesMap[registryName] = &registry
 	}
 
-	registry, err := gcrname.NewRegistry(rootRepo.RegistryStr())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create registry %s: %w", rootRepo.RegistryStr(), err)
-	}
+	// candidateRepos is the list of full repository names that match any of the
+	// given root repositories. This list is appended to so the range function
+	// below is psuedo-recursive.
+	candidateRepos := make([]string, 0, len(roots))
 
-	allRepos, err := gcrremote.Catalog(ctx, registry, gcrremote.WithAuth(c.auther))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch all repositories from registry %s: %w", registry.Name(), err)
-	}
+	// Iterate through each registry, query the entire registry (yea, that's how
+	// you "search"), and collect a list of candidate repos.
+	for _, registry := range registriesMap {
+		c.logger.Debug("listing child repositories for registry",
+			"registry", registry.Name())
 
-	var childRepos = make([]string, 0, len(allRepos))
-	for _, repo := range allRepos {
-		if strings.HasPrefix(repo, rootRepo.RepositoryStr()) {
-			childRepos = append(childRepos, fmt.Sprintf("%s/%s", registry.Name(), repo))
+		// List all repos in the registry.
+		allRepos, err := gcrremote.Catalog(ctx, *registry,
+			gcrremote.WithAuth(c.auther),
+			gcrremote.WithContext(ctx))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch catalog for registry %q: %w", registry.Name(), err)
+		}
+
+		c.logger.Debug("found child repositories for registry",
+			"registry", registry.Name(),
+			"repos", allRepos)
+
+		// Search through each repository and append any repository that matches any
+		// of the prefixes defined by roots.
+		for _, repo := range allRepos {
+			// Compute the full repo name by appending the repo to the registry
+			// identifier.
+			fullRepoName := registry.Name() + "/" + repo
+
+			hasPrefix := false
+			for _, root := range roots {
+				if strings.HasPrefix(fullRepoName, root) {
+					hasPrefix = true
+					break
+				}
+			}
+			if hasPrefix {
+				c.logger.Debug("appending new repository candidate",
+					"registry", registry.Name(),
+					"repo", repo)
+				candidateRepos = append(candidateRepos, fullRepoName)
+			} else {
+				c.logger.Debug("skipping repository candidate (does not match any roots)",
+					"registry", registry.Name(),
+					"repo", repo)
+			}
 		}
 	}
 
-	sort.Strings(childRepos)
-	return childRepos, nil
+	// De-duplicate and sort the list.
+	sort.Strings(candidateRepos)
+	return candidateRepos, nil
 }

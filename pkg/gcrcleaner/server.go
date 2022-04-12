@@ -160,13 +160,19 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 		repos = append(repos, t)
 	}
 	if p.Recursive {
-		for _, repo := range repos {
-			childRepos, err := s.cleaner.ListChildRepositories(ctx, repo)
-			if err != nil {
-				return nil, http.StatusBadRequest, fmt.Errorf("failed to list child repositories for %q: %w", p.Repo, err)
-			}
-			repos = append(repos, childRepos...)
+		s.logger.Debug("gathering child repositories recursively")
+
+		allRepos, err := s.cleaner.ListChildRepositories(ctx, repos)
+		if err != nil {
+			return nil, http.StatusBadRequest, fmt.Errorf("failed to list child repositories for %q: %w", p.Repo, err)
 		}
+		s.logger.Debug("recursively listed child repositories",
+			"in", repos,
+			"out", allRepos)
+
+		// This is safe because ListChildRepositories is guaranteed to include at
+		// least the list repos givenh to it.
+		repos = allRepos
 	}
 
 	s.logger.Info("deleting refs",
