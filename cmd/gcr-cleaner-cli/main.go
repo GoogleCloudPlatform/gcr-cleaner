@@ -156,7 +156,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	}
 	since := time.Now().UTC().Add(sub)
 
-	// Gather the repositories
+	// Gather the repositories.
 	if *recursivePtr {
 		logger.Debug("gathering child repositories recursively")
 		for _, repo := range repos {
@@ -181,7 +181,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	var result *multierror.Error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(repo, since, *keepPtr, tagFilter, *dryRunPtr)
+		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *dryRunPtr)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
