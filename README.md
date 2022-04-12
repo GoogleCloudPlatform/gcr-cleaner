@@ -206,10 +206,20 @@ The payload is expected to be JSON with the following fields:
     the service account in order to query the registry. The most minimal
     permissions are `roles/browser`.
 
-    **WARNING!** If you have access to many Container Registry repos, this will
-    be very slow! This is because the Docker v2 API does not support server-side
-    filtering, meaning GCR Cleaner must download a manifest of all repositories
-    to which you have access and then do client-side filtering.
+    **WARNING!** If the authenticated principal has access to many Container
+    Registry or Artifact Registry repos, this will be very slow! This is because
+    the Docker v2 API does not support server-side filtering, meaning GCR
+    Cleaner must download a manifest of all repositories to which you have
+    access and then do client-side filtering. The most granular filter is at the
+    _host_ layer, meaning GCR Cleaner will perform a list operation on `gcr.io`
+    (for Container Registry) or `us-docker.pkg.dev` (for Artifact Registry),
+    parse the response and do client-side filtering to match against the
+    provided patterns, then start deleting. To re-iterate, this operation is
+    **not segmented by project** - if the authenticated principal has access to
+    10,000 repos, the client will need to filter through 10,000 repos. The
+    easiest way to mitigate this is to practice the Principle of Least Privilege
+    and create a dedicated service account that has granular permissions on a
+    subset of repositories.
 
 - `tag_filter` (_Deprecated_) - This option is deprecated and only exists to
   maintain backwards compatibility with some existing broken behavior. You

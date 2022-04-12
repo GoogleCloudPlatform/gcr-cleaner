@@ -159,13 +159,18 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	// Gather the repositories.
 	if *recursivePtr {
 		logger.Debug("gathering child repositories recursively")
-		for _, repo := range repos {
-			childRepos, err := cleaner.ListChildRepositories(ctx, repo)
-			if err != nil {
-				return err
-			}
-			repos = append(repos, childRepos...)
+
+		allRepos, err := cleaner.ListChildRepositories(ctx, repos)
+		if err != nil {
+			return err
 		}
+		logger.Debug("recursively listed child repositories",
+			"in", repos,
+			"out", allRepos)
+
+		// This is safe because ListChildRepositories is guaranteed to include at
+		// least the list repos givenh to it.
+		repos = allRepos
 	}
 
 	// Log dry-run mode.
