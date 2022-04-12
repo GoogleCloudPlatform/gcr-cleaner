@@ -50,14 +50,16 @@ func NewCleaner(auther gcrauthn.Authenticator, logger *Logger, c int) (*Cleaner,
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since"
 // and higher than the "keep" amount.
-func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFilter, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int, tagFilter TagFilter, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
 	}
 	c.logger.Debug("computed repo", "repo", gcrrepo.Name())
 
-	tags, err := gcrgoogle.List(gcrrepo, gcrgoogle.WithAuth(c.auther))
+	tags, err := gcrgoogle.List(gcrrepo,
+		gcrgoogle.WithContext(ctx),
+		gcrgoogle.WithAuth(c.auther))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
 	}
@@ -113,7 +115,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 
 				tagged := gcrrepo.Tag(tag)
 				if !dryRun {
-					if err := c.deleteOne(tagged); err != nil {
+					if err := c.deleteOne(ctx, tagged); err != nil {
 						return nil, fmt.Errorf("failed to delete %s: %w", tagged, err)
 					}
 				}
@@ -140,7 +142,7 @@ func (c *Cleaner) Clean(repo string, since time.Time, keep int, tagFilter TagFil
 					"digest", m.Digest)
 
 				if !dryRun {
-					if err := c.deleteOne(ref); err != nil {
+					if err := c.deleteOne(ctx, ref); err != nil {
 						cause := errors.Unwrap(err).Error()
 
 						errsLock.Lock()
@@ -190,8 +192,10 @@ type manifest struct {
 }
 
 // deleteOne deletes a single repo ref using the supplied auth.
-func (c *Cleaner) deleteOne(ref gcrname.Reference) error {
-	if err := gcrremote.Delete(ref, gcrremote.WithAuth(c.auther)); err != nil {
+func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
+	if err := gcrremote.Delete(ref,
+		gcrremote.WithAuth(c.auther),
+		gcrremote.WithContext(ctx)); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", ref, err)
 	}
 
