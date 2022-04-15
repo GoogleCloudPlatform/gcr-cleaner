@@ -206,6 +206,8 @@ The payload is expected to be JSON with the following fields:
     the service account in order to query the registry. The most minimal
     permissions are `roles/browser`.
 
+    **NOTE!** On Artifact Registry, you must grant additional permissions to the service account in order to query the registry. The most minimal permissions are `roles/storage.objectViewer`.
+
     **WARNING!** If the authenticated principal has access to many Container
     Registry or Artifact Registry repos, this will be very slow! This is because
     the Docker v2 API does not support server-side filtering, meaning GCR
