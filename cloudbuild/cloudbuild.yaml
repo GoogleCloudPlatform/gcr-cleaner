@@ -14,7 +14,7 @@
 
 steps:
 - id: 'build-cli'
-  name: 'docker:19'
+  name: 'docker:20'
   args: [
     'build',
     '--build-arg', 'SERVICE=gcr-cleaner-cli',
@@ -27,7 +27,7 @@ steps:
   waitFor: ['-']
 
 - id: 'build-server'
-  name: 'docker:19'
+  name: 'docker:20'
   args: [
     'build',
     '--build-arg', 'SERVICE=gcr-cleaner-server',
@@ -40,7 +40,7 @@ steps:
   waitFor: ['-']
 
 - id: 'push-cli'
-  name: 'docker:19'
+  name: 'docker:20'
   entrypoint: '/bin/sh'
   args:
   - '-euo'
@@ -54,7 +54,7 @@ steps:
   waitFor: ['build-cli']
 
 - id: 'push-server'
-  name: 'docker:19'
+  name: 'docker:20'
   entrypoint: '/bin/sh'
   args:
   - '-euo'

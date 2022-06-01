@@ -282,7 +282,7 @@ service.
 ## License
 
 This library is licensed under Apache 2.0. Full license text is available in
-[LICENSE](https://github.com/sethvargo/gcr-cleaner/tree/master/LICENSE).
+[LICENSE](https://github.com/GoogleCloudPlatform/gcr-cleaner/tree/master/LICENSE).
 
 [artifact-registry]: https://cloud.google.com/artifact-registry
 [cloud-build]: https://cloud.google.com/build/
@@ -292,6 +292,6 @@ This library is licensed under Apache 2.0. Full license text is available in
 [cloud-sdk]: https://cloud.google.com/sdk
 [cloud-shell]: https://cloud.google.com/shell
 [container-registry]: https://cloud.google.com/container-registry
-[gcr-cleaner-godoc]: https://godoc.org/github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner
+[gcr-cleaner-godoc]: https://godoc.org/github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner
 [gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
 [go-re]: https://golang.org/pkg/regexp/syntax/

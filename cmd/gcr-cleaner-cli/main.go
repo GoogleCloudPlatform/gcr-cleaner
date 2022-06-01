@@ -27,10 +27,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/hashicorp/go-multierror"
-	"github.com/sethvargo/gcr-cleaner/pkg/gcrcleaner"
 )
 
 var (
