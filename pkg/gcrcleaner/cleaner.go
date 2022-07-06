@@ -50,7 +50,7 @@ func NewCleaner(auther gcrauthn.Authenticator, logger *Logger, c int) (*Cleaner,
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since"
 // and higher than the "keep" amount.
-func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int, tagFilter TagFilter, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int, tagFilter TagFilter, dryRun, sortByUpload bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -80,6 +80,9 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 
 	// Sort manifest by Created from the most recent to the least
 	sort.Slice(manifests, func(i, j int) bool {
+		if sortByUpload {
+			return manifests[j].Info.Uploaded.Before(manifests[i].Info.Uploaded)
+		}
 		return manifests[j].Info.Created.Before(manifests[i].Info.Created)
 	})
 

@@ -184,7 +184,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	for _, repo := range repos {
 		s.logger.Info("deleting refs for repo", "repo", repo)
 
-		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, tagFilter, p.DryRun)
+		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, tagFilter, p.DryRun, p.SortByUpload)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}
@@ -251,6 +251,9 @@ type Payload struct {
 
 	// Recursive enables cleaning all child repositories.
 	Recursive bool `json:"recursive"`
+
+	// SortByUpdate sorts images based on update time not created time.
+	SortByUpload bool `json:"filter_by_update"`
 
 	// TagFilterFirst is the tags pattern to be allowed removing. If specified, any
 	// images where the first tag matches the given regular expression will be
