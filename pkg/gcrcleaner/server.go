@@ -253,7 +253,7 @@ type Payload struct {
 	Recursive bool `json:"recursive"`
 
 	// SortByUpdate sorts images based on update time not created time.
-	SortByUpload bool `json:"filter_by_update"`
+	SortByUpload bool `json:"sort_by_upload"`
 
 	// TagFilterFirst is the tags pattern to be allowed removing. If specified, any
 	// images where the first tag matches the given regular expression will be
