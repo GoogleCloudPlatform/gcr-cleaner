@@ -223,6 +223,8 @@ The payload is expected to be JSON with the following fields:
     and create a dedicated service account that has granular permissions on a
     subset of repositories.
 
+- `sort_by_upload` - if set to true, will sort images based on upload time stamp (default: false, will sort images based on created time stamp). This will affect which images are not deleted based on given `keep` amount.
+
 - `tag_filter` (_Deprecated_) - This option is deprecated and only exists to
   maintain backwards compatibility with some existing broken behavior. You
   should not use it. If specified, any image where **the first tag** matches
