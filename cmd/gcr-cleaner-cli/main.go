@@ -52,6 +52,7 @@ var (
 	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
 	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
 	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	sortByUpload = flag.Bool("sort_by_upload", false, "sort images based on upload")
 
 	// tagFilterPtr and allow-tagged are deprecated
 	// TODO(sethvargo): remove before 1.0.0
@@ -186,7 +187,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	var result *multierror.Error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *dryRunPtr)
+		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *dryRunPtr, *sortByUpload)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
