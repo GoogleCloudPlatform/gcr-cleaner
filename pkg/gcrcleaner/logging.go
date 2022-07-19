@@ -77,28 +77,28 @@ func NewLogger(level string, outw, errw io.Writer) *Logger {
 	return &Logger{level: v, stdout: outw, stderr: errw}
 }
 
-func (l *Logger) Debug(msg string, fields ...interface{}) {
+func (l *Logger) Debug(msg string, fields ...any) {
 	l.log(l.stdout, msg, SeverityDebug, fields...)
 }
 
-func (l *Logger) Info(msg string, fields ...interface{}) {
+func (l *Logger) Info(msg string, fields ...any) {
 	l.log(l.stdout, msg, SeverityInfo, fields...)
 }
 
-func (l *Logger) Warn(msg string, fields ...interface{}) {
+func (l *Logger) Warn(msg string, fields ...any) {
 	l.log(l.stdout, msg, SeverityWarn, fields...)
 }
 
-func (l *Logger) Error(msg string, fields ...interface{}) {
+func (l *Logger) Error(msg string, fields ...any) {
 	l.log(l.stderr, msg, SeverityError, fields...)
 }
 
-func (l *Logger) Fatal(msg string, fields ...interface{}) {
+func (l *Logger) Fatal(msg string, fields ...any) {
 	l.log(l.stderr, msg, SeverityFatal, fields...)
 	os.Exit(1)
 }
 
-func (l *Logger) log(w io.Writer, msg string, sev Severity, fields ...interface{}) {
+func (l *Logger) log(w io.Writer, msg string, sev Severity, fields ...any) {
 	if len(fields)%2 != 0 {
 		panic("number of fields must be even")
 	}
@@ -107,7 +107,7 @@ func (l *Logger) log(w io.Writer, msg string, sev Severity, fields ...interface{
 		return
 	}
 
-	data := make(map[string]interface{}, len(fields)/2)
+	data := make(map[string]any, len(fields)/2)
 	for i := 0; i < len(fields); i += 2 {
 		key, ok := fields[i].(string)
 		if !ok {
@@ -141,11 +141,11 @@ type LogEntry struct {
 	Time     *time.Time
 	Severity Severity
 	Message  string
-	Data     map[string]interface{}
+	Data     map[string]any
 }
 
 func (l *LogEntry) MarshalJSON() ([]byte, error) {
-	d := make(map[string]interface{}, 8)
+	d := make(map[string]any, 8)
 
 	if l.Time != nil {
 		d["time"] = l.Time.Format(time.RFC3339)
