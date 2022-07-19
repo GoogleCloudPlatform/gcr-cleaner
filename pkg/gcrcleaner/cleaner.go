@@ -83,6 +83,21 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 		return manifests[j].Info.Created.Before(manifests[i].Info.Created)
 	})
 
+	// Generate an ordered map
+	manifestListForLog := make([]map[string]any, len(manifests))
+	for _, m := range manifests {
+		manifestListForLog = append(manifestListForLog, map[string]any{
+			"repo":     m.Repo,
+			"digest":   m.Digest,
+			"tags":     m.Info.Tags,
+			"created":  m.Info.Created.Format(time.RFC3339),
+			"uploaded": m.Info.Uploaded.Format(time.RFC3339),
+		})
+	}
+	c.logger.Debug("computed all manifests",
+		"keep", keep,
+		"manifests", manifestListForLog)
+
 	for _, m := range manifests {
 		// Store copy of manifest for thread safety in delete job pool
 		m := m
@@ -91,6 +106,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 			"repo", repo,
 			"digest", m.Digest,
 			"tags", m.Info.Tags,
+			"created", m.Info.Created.Format(time.RFC3339),
 			"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
 		if c.shouldDelete(m, since, tagFilter) {
@@ -100,7 +116,9 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 					"repo", repo,
 					"digest", m.Digest,
 					"keep", keep,
-					"keep_count", keepCount)
+					"keep_count", keepCount,
+					"created", m.Info.Created.Format(time.RFC3339),
+					"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
 				keepCount++
 				continue
@@ -212,6 +230,7 @@ func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter
 			"digest", m.Digest,
 			"reason", "too new",
 			"since", since.Format(time.RFC3339),
+			"created", m.Info.Created.Format(time.RFC3339),
 			"uploaded", uploaded.Format(time.RFC3339),
 			"delta", uploaded.Sub(since).String())
 		return false
@@ -234,6 +253,7 @@ func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter
 			"repo", m.Repo,
 			"digest", m.Digest,
 			"reason", "matches tag filter",
+			"tags", m.Info.Tags,
 			"tag_filter", tagFilter.Name())
 		return true
 	}
