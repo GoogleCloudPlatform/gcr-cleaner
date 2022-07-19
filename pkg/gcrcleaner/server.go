@@ -304,7 +304,7 @@ func (s *sortedStringSlice) UnmarshalJSON(b []byte) error {
 		if t := strings.TrimSpace(val); t != "" {
 			m[t] = struct{}{}
 		}
-	case any:
+	case []any:
 		for i, v := range val {
 			s, ok := v.(string)
 			if !ok {
