@@ -18,3 +18,12 @@ docker-push:
 		--config ./cloudbuild/cloudbuild.yaml \
 		.
 .PHONY: docker-push
+
+test:
+	@go test \
+		-count=1 \
+		-race \
+		-shuffle=on \
+		-timeout=10m \
+		./...
+.PHONY: test

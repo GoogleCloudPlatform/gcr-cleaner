@@ -183,8 +183,24 @@ The payload is expected to be JSON with the following fields:
   the duration will not be deleted. If unspecified, the default is no grace
   period (all untagged image refs are deleted).
 
-- `keep` - If an integer is provided, it will always keep that minimum number
-  of images. Note that it will not consider images inside the `grace` duration.
+- `keep` - If an integer is provided, it will always keep that minimum number of
+  images. Note that it will not consider images inside the `grace` duration. GCR
+  Cleaner attempts to keep the most recently created images, but there are some
+  caveats. Some community tooling sets container creation time to a date back in
+  1980, which breaks the default sorting algorithm. As such, GCR Cleaner uses
+  the following sorting algorithm for container images:
+
+    - If either of the containers were created before Docker even existed, it
+      sorts by the date the container was uploaded to the registry.
+
+    - If two containers were created at the same timestamp, it sorts by the date
+      the container was uploaded to the registry.
+
+    - In all other situations, it sorts by the timestamp the container was
+      created.
+
+  This algorithm exists to preserve ordering for containers that are moved
+  between registries.
 
 - `tag_filter_any` - If specified, any image with at **least one tag** that
   matches this given regular expression will be deleted. The image will be

@@ -31,6 +31,16 @@ import (
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
+// dockerExistence is date of the first release of Docker[1] (then dotCloud) and
+// marks the first possible date in which Docker containers could feasibly have
+// been created. We need this because some tools set the container's CreatedDate
+// to a very old value[2] and thus sorting by creation date fails.
+//
+// [1]: https://en.wikipedia.org/wiki/Docker_(software)
+//
+// [2]: https://buildpacks.io/docs/features/reproducibility/
+var dockerExistence = time.Date(2013, time.March, 20, 0, 0, 0, 0, time.UTC)
+
 // Cleaner is a gcr cleaner.
 type Cleaner struct {
 	auther      gcrauthn.Authenticator
@@ -78,9 +88,22 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 		manifests = append(manifests, &manifest{repo, k, m})
 	}
 
-	// Sort manifest by Created from the most recent to the least
+	// Sort manifests. If either of the containers were created before Docker even
+	// existed, we fall back to the upload date. This can happen with some
+	// community build tools. If two containers were created at the same time, we
+	// fall back to the upload date. Otherwise, we sort by the container creation
+	// date.
 	sort.Slice(manifests, func(i, j int) bool {
-		return manifests[j].Info.Created.Before(manifests[i].Info.Created)
+		jCreated, jUploaded := manifests[j].Info.Created, manifests[j].Info.Uploaded
+		iCreated, iUploaded := manifests[i].Info.Created, manifests[i].Info.Uploaded
+
+		// If either container has a CreateTime that predates Docker's existence, or
+		// the contains have the same creation time, fallback to the uploaded time.
+		if jCreated.Before(dockerExistence) || iCreated.Before(dockerExistence) || jCreated.Equal(iCreated) {
+			return jUploaded.Before(iUploaded)
+		}
+
+		return jCreated.Before(iCreated)
 	})
 
 	// Generate an ordered map
