@@ -17,18 +17,17 @@ package gcrcleaner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gammazero/workerpool"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	"golang.org/x/sync/semaphore"
 )
 
 // dockerExistence is date of the first release of Docker[1] (then dotCloud) and
@@ -51,6 +50,10 @@ type Cleaner struct {
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
 func NewCleaner(auther gcrauthn.Authenticator, logger *Logger, c int) (*Cleaner, error) {
+	if c < 1 {
+		return nil, fmt.Errorf("concurrency must be at least 1, got %d", c)
+	}
+
 	return &Cleaner{
 		auther:      auther,
 		concurrency: c,
@@ -74,13 +77,13 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
 	}
 
-	// Create a worker pool for parallel deletion
-	pool := workerpool.New(c.concurrency)
+	workers := int64(c.concurrency)
+	sem := semaphore.NewWeighted(workers)
 
 	var keepCount = 0
 	var deleted = make([]string, 0, len(tags.Manifests))
 	var deletedLock sync.Mutex
-	var errs = make(map[string]error)
+	var errs = make([]error, 0)
 	var errsLock sync.RWMutex
 
 	var manifests = make([]*manifest, 0, len(tags.Manifests))
@@ -168,15 +171,13 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 
 			digest := m.Digest
 			ref := gcrrepo.Digest(digest)
-			pool.Submit(func() {
-				// Do not process if previous invocations failed. This prevents a large
-				// build-up of failed requests and rate limit exceeding (e.g. bad auth).
-				errsLock.RLock()
-				if len(errs) > 0 {
-					errsLock.RUnlock()
-					return
-				}
-				errsLock.RUnlock()
+
+			if err := sem.Acquire(ctx, 1); err != nil {
+				return nil, fmt.Errorf("failed to acquire semaphore: %w", err)
+			}
+
+			go func() {
+				defer sem.Release(1)
 
 				c.logger.Debug("deleting digest",
 					"repo", repo,
@@ -184,14 +185,8 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 
 				if !dryRun {
 					if err := c.deleteOne(ctx, ref); err != nil {
-						cause := errors.Unwrap(err).Error()
-
 						errsLock.Lock()
-						if _, ok := errs[cause]; !ok {
-							errs[cause] = err
-							errsLock.Unlock()
-							return
-						}
+						errs = append(errs, err)
 						errsLock.Unlock()
 					}
 				}
@@ -199,30 +194,22 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 				deletedLock.Lock()
 				deleted = append(deleted, digest)
 				deletedLock.Unlock()
-			})
+			}()
 		}
 	}
 
 	// Wait for everything to finish
-	pool.StopWait()
-
-	// Aggregate any errors
-	if len(errs) > 0 {
-		var errStrings []string
-		for _, v := range errs {
-			errStrings = append(errStrings, v.Error())
-		}
-
-		if len(errStrings) == 1 {
-			return nil, fmt.Errorf(errStrings[0])
-		}
-
-		return nil, fmt.Errorf("%d errors occurred: %s",
-			len(errStrings), strings.Join(errStrings, ", "))
+	if err := sem.Acquire(ctx, workers); err != nil {
+		return nil, fmt.Errorf("failed to wait for semaphore: %w", err)
 	}
 
-	sort.Strings(deleted)
+	// Aggregate any errors
+	if err := ErrsToError(errs); err != nil {
+		return nil, err
+	}
 
+	// Return the list of deleted entries
+	sort.Strings(deleted)
 	return deleted, nil
 }
 
@@ -382,4 +369,30 @@ func (c *Cleaner) ListChildRepositories(ctx context.Context, roots []string) ([]
 	// De-duplicate and sort the list.
 	sort.Strings(candidateRepos)
 	return candidateRepos, nil
+}
+
+// ErrsToError converts a list of errors into a single error. If the list is
+// empty, it returns nil. If the list contains exactly one error, it returns
+// that error. Otherwise it returns a bulleted list of the sorted errors, but
+// the original error contexts are discarded.
+func ErrsToError(errs []error) error {
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errs[0]
+	default:
+		errMessages := make([]string, len(errs))
+		for i, err := range errs {
+			errMessages[i] = err.Error()
+		}
+		sort.Strings(errMessages)
+
+		var b strings.Builder
+		fmt.Fprintf(&b, "%d errors occurred:\n", len(errs))
+		for _, msg := range errMessages {
+			fmt.Fprintf(&b, "  * %s\n", msg)
+		}
+		return fmt.Errorf(b.String())
+	}
 }
