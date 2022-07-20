@@ -98,18 +98,6 @@ The payload is expected to be JSON with the following fields:
     and create a dedicated service account that has granular permissions on a
     subset of repositories.
 
-- `tag_filter` (_Deprecated_) - This option is deprecated and only exists to
-  maintain backwards compatibility with some existing broken behavior. You
-  should not use it. If specified, any image where **the first tag** matches
-  this given regular expression will be deleted. The image will not be deleted
-  if other tags match the regular expression. The regular expressions are parsed
-  according to the [Go regexp package][go-re].
-
-- `allow_tagged` (_Deprecated_) - This option is deprecated and has no effect.
-  By default, GCR Cleaner will not delete tagged images. To delete tagged
-  images, specify `tag_filter_any` or `tag_filter_all`. Specifying either of
-  these will enable deletion by tag.
-
 
 ## Permissions
 

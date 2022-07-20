@@ -24,59 +24,34 @@ func TestBuildTagFilter(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name            string
-		first, any, all string
-		err             bool
-		exp             reflect.Type
+		name     string
+		any, all string
+		err      bool
+		exp      reflect.Type
 	}{
 		{
-			name:  "empty",
-			first: "",
-			any:   "",
-			all:   "",
-			exp:   reflect.TypeOf(&TagFilterNull{}),
+			name: "empty",
+			any:  "",
+			all:  "",
+			exp:  reflect.TypeOf(&TagFilterNull{}),
 		},
 		{
-			name:  "first_any",
-			first: "a",
-			any:   "b",
-			all:   "",
-			err:   true,
+			name: "any_all",
+			any:  "b",
+			all:  "c",
+			err:  true,
 		},
 		{
-			name:  "first_all",
-			first: "a",
-			any:   "",
-			all:   "c",
-			err:   true,
+			name: "any",
+			any:  "a",
+			all:  "",
+			exp:  reflect.TypeOf(&TagFilterAny{}),
 		},
 		{
-			name:  "any_all",
-			first: "",
-			any:   "b",
-			all:   "c",
-			err:   true,
-		},
-		{
-			name:  "first",
-			first: "a",
-			any:   "",
-			all:   "",
-			exp:   reflect.TypeOf(&TagFilterFirst{}),
-		},
-		{
-			name:  "any",
-			first: "",
-			any:   "a",
-			all:   "",
-			exp:   reflect.TypeOf(&TagFilterAny{}),
-		},
-		{
-			name:  "all",
-			first: "",
-			any:   "",
-			all:   "a",
-			exp:   reflect.TypeOf(&TagFilterAll{}),
+			name: "all",
+			any:  "",
+			all:  "a",
+			exp:  reflect.TypeOf(&TagFilterAll{}),
 		},
 	}
 
@@ -86,61 +61,12 @@ func TestBuildTagFilter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, err := BuildTagFilter(tc.first, tc.any, tc.all)
+			f, err := BuildTagFilter(tc.any, tc.all)
 			if (err != nil) != tc.err {
 				t.Fatal(err)
 			}
 			if got, want := reflect.TypeOf(f), tc.exp; got != want {
 				t.Errorf("expected %v to be %v", got, want)
-			}
-		})
-	}
-}
-
-func TestTagFilterFirst_Matches(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		re   *regexp.Regexp
-		tags []string
-		exp  bool
-	}{
-		{
-			name: "empty_re",
-			re:   nil,
-			tags: nil,
-			exp:  false,
-		},
-		{
-			name: "empty_tags",
-			re:   regexp.MustCompile(`.*`),
-			tags: nil,
-			exp:  false,
-		},
-		{
-			name: "matches_first",
-			re:   regexp.MustCompile(`.*`),
-			tags: []string{"tag1", "tag2"},
-			exp:  true,
-		},
-		{
-			name: "doesnt_match_second",
-			re:   regexp.MustCompile(`^tag2$`),
-			tags: []string{"tag1", "tag2"},
-			exp:  false,
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			f := &TagFilterFirst{re: tc.re}
-			if got, want := f.Matches(tc.tags), tc.exp; got != want {
-				t.Errorf("expected %q matches %q to be %t", tc.re, tc.tags, want)
 			}
 		})
 	}

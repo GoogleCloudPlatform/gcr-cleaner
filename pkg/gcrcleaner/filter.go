@@ -29,19 +29,13 @@ type TagFilter interface {
 // BuildTagFilter builds and compiles a new tag filter for the given inputs. All
 // inputs are strings to be compiled to regular expressions and are mutually
 // exclusive.
-func BuildTagFilter(first, any, all string) (TagFilter, error) {
+func BuildTagFilter(any, all string) (TagFilter, error) {
 	// Ensure only one tag filter type is given.
-	if (first != "" && any != "") || (first != "" && all != "") || (any != "" && all != "") {
+	if any != "" && all != "" {
 		return nil, fmt.Errorf("only one tag filter type may be specified")
 	}
 
 	switch {
-	case first != "":
-		re, err := regexp.Compile(first)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile tag_filter regular expression %q: %w", first, err)
-		}
-		return &TagFilterFirst{re}, nil
 	case any != "":
 		re, err := regexp.Compile(any)
 		if err != nil {
@@ -56,7 +50,7 @@ func BuildTagFilter(first, any, all string) (TagFilter, error) {
 		return &TagFilterAll{re}, nil
 	default:
 		// If no filters were provided, return the null filter which just returns
-		// false for all matches. This preserves the "allow_tagged" behavior.
+		// false for all matches.
 		return &TagFilterNull{}, nil
 	}
 }
@@ -73,27 +67,6 @@ func (f *TagFilterNull) Matches(tags []string) bool {
 func (f *TagFilterNull) Name() string {
 	return "(none)"
 }
-
-var _ TagFilter = (*TagFilterFirst)(nil)
-
-// TagFilterFirst filters based on the first item in the list. If the list is
-// empty or if the first item does not match the regex, it returns false.
-type TagFilterFirst struct {
-	re *regexp.Regexp
-}
-
-func (f *TagFilterFirst) Name() string {
-	return fmt.Sprintf("first(%s)", f.re.String())
-}
-
-func (f *TagFilterFirst) Matches(tags []string) bool {
-	if len(tags) < 1 || f.re == nil {
-		return false
-	}
-	return f.re.MatchString(tags[0])
-}
-
-var _ TagFilter = (*TagFilterAny)(nil)
 
 // TagFilterAny filters based on the entire list. If any tag in the list
 // matches, it returns true. If no tags match, it returns false.
