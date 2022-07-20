@@ -51,11 +51,6 @@ var (
 	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
 	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
 	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
-
-	// tagFilterPtr and allow-tagged are deprecated
-	// TODO(sethvargo): remove before 1.0.0
-	allowTaggedPtr    = flag.Bool("allow-tagged", false, "DEPRECATED: Delete tagged images")
-	tagFilterFirstPtr = flag.String("tag-filter", "", "DEPRECATED: Tags pattern to clean")
 )
 
 func main() {
@@ -115,14 +110,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	}
 	sort.Strings(repos)
 
-	if *allowTaggedPtr {
-		fmt.Fprintf(stderr, "DEPRECATION: -allow-tagged is deprecated, specifying any tags will enable deleting of tagged images\n")
-	}
-	if *tagFilterFirstPtr != "" {
-		fmt.Fprintf(stderr, "DEPRECATION: -tag-filter is deprecated, use -tag-filter-any or -tag-filter-all instead\n")
-	}
-
-	tagFilter, err := gcrcleaner.BuildTagFilter(*tagFilterFirstPtr, *tagFilterAny, *tagFilterAll)
+	tagFilter, err := gcrcleaner.BuildTagFilter(*tagFilterAny, *tagFilterAll)
 	if err != nil {
 		return fmt.Errorf("failed to parse tag filter: %w", err)
 	}

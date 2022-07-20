@@ -143,7 +143,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	}
 
 	since := time.Now().UTC().Add(sub)
-	tagFilter, err := BuildTagFilter(p.TagFilterFirst, p.TagFilterAny, p.TagFilterAll)
+	tagFilter, err := BuildTagFilter(p.TagFilterAny, p.TagFilterAll)
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to build tag filter: %w", err)
 	}
@@ -155,16 +155,12 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 			repos = append(repos, t)
 		}
 	}
-	if t := strings.TrimSpace(p.Repo); t != "" {
-		s.logger.Warn("specifying \"repo\" is deprecated - switch to \"repos\"")
-		repos = append(repos, t)
-	}
 	if p.Recursive {
 		s.logger.Debug("gathering child repositories recursively")
 
 		allRepos, err := s.cleaner.ListChildRepositories(ctx, repos)
 		if err != nil {
-			return nil, http.StatusBadRequest, fmt.Errorf("failed to list child repositories for %q: %w", p.Repo, err)
+			return nil, http.StatusBadRequest, fmt.Errorf("failed to list child repositories: %w", err)
 		}
 		s.logger.Debug("recursively listed child repositories",
 			"in", repos,
@@ -218,11 +214,6 @@ func (s *Server) handleError(w http.ResponseWriter, err error, status int) {
 
 // Payload is the expected incoming payload format.
 type Payload struct {
-	// Repo is the name of the repo to clean.
-	//
-	// Deprecated: Use Repos instead.
-	Repo string `json:"repo"`
-
 	// Repos is the list of repositories to clean.
 	Repos sortedStringSlice `json:"repos"`
 
@@ -251,20 +242,6 @@ type Payload struct {
 
 	// Recursive enables cleaning all child repositories.
 	Recursive bool `json:"recursive"`
-
-	// TagFilterFirst is the tags pattern to be allowed removing. If specified, any
-	// images where the first tag matches the given regular expression will be
-	// deleted.
-	//
-	// Deprecated: Use tag_filter_all or tag_filter_any instead.
-	TagFilterFirst string `json:"tag_filter"`
-
-	// AllowTagged is a Boolean value determine if tagged images are allowed to be
-	// deleted.
-	//
-	// Deprecated: Use tag_filter_all or tag_filter_any instead. Setting either of
-	// these values enables deleting tagged images.
-	AllowTagged bool `json:"allow_tagged"`
 }
 
 type pubsubMessage struct {
