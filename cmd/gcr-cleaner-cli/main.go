@@ -30,7 +30,6 @@ import (
 	"github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/hashicorp/go-multierror"
 )
 
 var (
@@ -183,12 +182,12 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		since.Format(time.RFC3339), len(repos))
 
 	// Do the deletion.
-	var result *multierror.Error
+	var errs []error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
 		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *dryRunPtr)
 		if err != nil {
-			result = multierror.Append(result, err)
+			errs = append(errs, err)
 		}
 
 		if len(deleted) > 0 {
@@ -203,5 +202,6 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 			fmt.Fprintf(stdout, "\n")
 		}
 	}
-	return result.ErrorOrNil()
+
+	return gcrcleaner.ErrsToError(errs)
 }
