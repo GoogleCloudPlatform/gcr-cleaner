@@ -1,0 +1,41 @@
+name: 'Bug report'
+description: 'File a bug report'
+labels: ['bug']
+body:
+- type: 'markdown'
+  attributes:
+    value: |-
+      Thank you for filing an bug. Please complete the form below so we can triage, reproduce, and fix your issue.
+
+- id: 'tldr'
+  type: 'textarea'
+  attributes:
+    label: 'TL;DR'
+    description: 'Describe the bug in 1-2 sentences.'
+  validations:
+    required: true
+
+- id: 'expected_behavior'
+  type: 'textarea'
+  attributes:
+    label: 'Expected behavior'
+    description: 'What did you expect to happen?'
+
+- id: 'observed_behavior'
+  type: 'textarea'
+  attributes:
+    label: 'Observed behavior'
+    description: 'What happened instead?'
+
+- id: 'log_output'
+  type: 'textarea'
+  attributes:
+    label: 'Debug log output'
+    description: 'Paste the debug log output here. See https://github.com/GoogleCloudPlatform/gcr-cleaner#Debugging for more information.'
+    render: 'text'
+
+- id: 'additional'
+  type: 'textarea'
+  attributes:
+    label: 'Additional information'
+    description: 'Is there anything else you think we should know?'

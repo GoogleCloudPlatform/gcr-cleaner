@@ -1,177 +1,36 @@
 # GCR Cleaner
 
-GCR Cleaner deletes stale images in Google Cloud [Container
-Registry][container-registry] or Google Cloud [Artifact
-Registry][artifact-registry]. This can help reduce costs and keep your container
-images list in order.
+GCR Cleaner deletes old container images in [Docker Hub][docker-hub], [Container Registry][container-registry], [Artifact Registry][artifact-registry], or any Docker v2 registries. This can help reduce storage costs, especially in CI/CD environments where images are created and pushed frequently.
 
-GCR Cleaner is designed to be deployed as a [Cloud Run][cloud-run] service and
-invoked periodically via [Cloud Scheduler][cloud-scheduler].
+There are multiple deployment options for GCR Cleaner. Click on your preferred
+deployment option for a detailed guide:
+
+- [Scheduled GitHub Action workflow](docs/deploy-github-actions.md)
+- [Deployed to Cloud Run](docs/deploy-cloud-run.md)
+
+For one-off tasks, you can also run GCR Cleaner locally:
 
 ```text
-+-------------------+    +-------------+    +-------+
-|  Cloud Scheduler  | -> |  Cloud Run  | -> |  GCR  |
-+-------------------+    +-------------+    +-------+
+docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
 ```
 
 **This is not an official Google product.**
 
 
-## Setup
+## Container images
 
-1. Install the [Cloud SDK][cloud-sdk] for your operating system. Alternatively,
-   you can run these commands from [Cloud Shell][cloud-shell], which has the SDK
-   and other popular tools pre-installed.
+Pre-built container images are available at the following locations. We do not
+offer versioned container images.
 
-1. Export your project ID as an environment variable. The rest of this setup
-   assumes this environment variable is set.
-
-   ```sh
-   export PROJECT_ID="my-project"
-   ```
-
-   Note this is your project _ID_, not the project _number_ or _name_.
-
-1. Enable the Google APIs - this only needs to be done once per project:
-
-    ```sh
-    gcloud services enable --project "${PROJECT_ID}" \
-      appengine.googleapis.com \
-      cloudscheduler.googleapis.com \
-      run.googleapis.com
-    ```
-
-    This operation can take a few minutes, especially for recently-created
-    projects.
-
-1. Create a service account which will be assigned to the Cloud Run service:
-
-    ```sh
-    gcloud iam service-accounts create "gcr-cleaner" \
-      --project "${PROJECT_ID}" \
-      --display-name "gcr-cleaner"
-    ```
-
-1. Deploy the `gcr-cleaner` container on Cloud Run running as the service
-   account just created:
-
-    ```sh
-    gcloud --quiet run deploy "gcr-cleaner" \
-      --async \
-      --project ${PROJECT_ID} \
-      --platform "managed" \
-      --service-account "gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --image "us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner" \
-      --region "us-central1" \
-      --timeout "60s"
-    ```
-
-1. Grant the service account access to delete references.
-
-    - For **Container Registry**:
-
-        ```sh
-        gsutil acl ch -u gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com:W gs://artifacts.${PROJECT_ID}.appspot.com
-        ```
-
-        To cleanup refs in _other_ GCP projects, replace `PROJECT_ID` with the
-        target project ID. For example, if the Cloud Run service was running in
-        "project-a" and you wanted to grant it permission to cleanup refs in
-        "gcr.io/project-b/image", you would need to grant the Cloud Run service
-        account in project-a permission on `artifacts.projects-b.appspot.com`.
-
-        To clean up Container Registry images hosted in specific regions, update the bucket name to include the region:
-
-        ```text
-        gs://eu.artifacts.${PROJECT_ID}.appspot.com
-        ```
-
-        If you plan on using the `recursive` functionality, you must also grant the
-        service account "Browser" permissions:
-
-        ```sh
-        gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-          --member "serviceAccount:gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-          --role "roles/browser"
-        ```
-
-    - For **Artifact Registry**:
-
-        ```sh
-        gcloud artifacts repositories add-iam-policy-binding "${REPO_NAME}" \
-            --project "${PROJECT_ID}" \
-            --location "${LOCATION}" \
-            --member "serviceAccount:gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com" \
-            --role "roles/artifactregistry.repoAdmin"
-        ```
-
-        Where "REPO_NAME" is the name of the Artifact Registry repository and
-        "LOCATION" is the geographic location.
-
-1. Create a service account with permission to invoke the Cloud Run service:
-
-    ```sh
-    gcloud iam service-accounts create "gcr-cleaner-invoker" \
-      --project "${PROJECT_ID}" \
-      --display-name "gcr-cleaner-invoker"
-    ```
-
-    ```sh
-    gcloud run services add-iam-policy-binding "gcr-cleaner" \
-      --project "${PROJECT_ID}" \
-      --platform "managed" \
-      --region "us-central1" \
-      --member "serviceAccount:gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --role "roles/run.invoker"
-    ```
-
-1. Create a Cloud Scheduler HTTP job to invoke the function every week:
-
-    ```sh
-    gcloud app create \
-      --project "${PROJECT_ID}" \
-      --region "us-central" \
-      --quiet
-    ```
-
-    ```sh
-    # Replace this with the full name of the repository for which you
-    # want to cleanup old references, for example:
-    export REPO="gcr.io/${PROJECT_ID}/my-image"
-    export REPO="us-docker-pkg.dev/${PROJECT_ID}/my-repo/my-image"
-    ```
-
-    ```sh
-    # Capture the URL of the Cloud Run service:
-    export SERVICE_URL=$(gcloud run services describe gcr-cleaner --project "${PROJECT_ID}" --platform "managed" --region "us-central1" --format 'value(status.url)')
-    ```
-
-    ```sh
-    gcloud scheduler jobs create http "gcrclean-myimage" \
-      --project ${PROJECT_ID} \
-      --description "Cleanup ${REPO}" \
-      --uri "${SERVICE_URL}/http" \
-      --message-body "{\"repos\":[\"${REPO}\"]}" \
-      --oidc-service-account-email "gcr-cleaner-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
-      --schedule "0 8 * * 2" \
-      --time-zone="US/Eastern"
-    ```
-
-    You can create specify multiple repositories in the list to clean more than
-    one repository.
-
-1. _(Optional)_ Run the scheduled job now:
-
-    ```sh
-    gcloud scheduler jobs run "gcrclean-myimage" \
-      --project "${PROJECT_ID}"
-    ```
-
-    Note: for initial job deployments, you must wait a few minutes before
-    invoking.
+```text
+gcr.io/gcr-cleaner/gcr-cleaner
+asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+```
 
 
-## Payload &amp; Parameters
+## Payload &amp; parameters
 
 The payload is expected to be JSON with the following fields:
 
@@ -252,62 +111,69 @@ The payload is expected to be JSON with the following fields:
   these will enable deletion by tag.
 
 
-## Running locally
+## Permissions
 
-In addition to the server, you can also run GCR Cleaner locally for one-off tasks using `cmd/gcr-cleaner-cli`:
+This section lists the minimum required permissions depending on the target
+cleanup system.
 
-```text
-docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
+#### Artifact Registry
+
+The service account running GCR cleaner must have
+`roles/artifactregistry.repoAdmin` or greater on the Artifact Registry
+repositories. Here is an example for setting that permissions via `gcloud`:
+
+```sh
+gcloud artifacts repositories add-iam-policy-binding "my-repo" \
+  --project "my-project" \
+  --location "us" \
+  --member "serviceAccount:gcr-cleaner@my-project.iam.gserviceaccount.com" \
+  --role "roles/artifactregistry.repoAdmin"
 ```
 
-## Logging
+#### Container Registry
 
-By default, logs are produced at the `info` level. More logs are available at
-the `debug` level. To set the log level, set `GCRCLEANER_LOG=debug`.
+Container Registry stores images in Google Cloud Storage, so the service account
+running GCR Cleaner must have read and write permissions on the underlying Cloud
+Storage bucket. Here is an example for setting that permission via `gsutil`:
 
-
-## I just want the container!
-
-You can build the container yourself using the included Dockerfile.
-Alternatively, you can source a pre-built container from Artifact Registry or
-Container Registry. All of the following URLs provide an equivalent image:
-
-```text
-gcr.io/gcr-cleaner/gcr-cleaner
-asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
-europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
-us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
+```sh
+gsutil acl ch -u gcr-cleaner@my-project.iam.gserviceaccount.com:W gs://artifacts.my-project.appspot.com
 ```
 
-## What about using Terraform!
+To clean up Container Registry images hosted in specific regions, update the
+bucket name to include the region:
 
-:package: You can deploy the stack using the community-supported Terraform module [gcr-cleaner](https://registry.terraform.io/modules/mirakl/gcr-cleaner/google/latest#usage):
+```text
+gs://eu.artifacts.my-project.appspot.com
+```
 
-## FAQ
+If you plan on using the `recursive` functionality, you must also grant the
+service account "Browser" permissions:
 
-**Does it work with Cloud Pub/Sub?**
-<br>
-Yes! Just change the endpoint from `/http` to `/pubsub`!
+```sh
+gcloud projects add-iam-policy-binding "my-project" \
+  --member "serviceAccount:gcr-cleaner@my-project.iam.gserviceaccount.com" \
+  --role "roles/browser"
+```
 
-**What was your inspiration?**
-<br>
-GCR Cleaner is largely inspired by [ahmetb](https://twitter.com/ahmetb)'s
-[gcrgc.sh][gcrgc.sh], but it is written in Go and is designed to be run as a
-service.
 
-## License
+## Debugging
 
-This library is licensed under Apache 2.0. Full license text is available in
-[LICENSE](https://github.com/GoogleCloudPlatform/gcr-cleaner/tree/master/LICENSE).
+By default, GCR Cleaner only emits user-level logging at the "info" level. More logs are available at the "debug" level. To configure the log level, set the `GCRCLEANER_LOG` environment variable to the desired log value:
+
+```sh
+export GCRCLEANER_LOG=debug
+```
+
+In debug mode, GCR Cleaner will print **a lot** of information, including its
+entire decision process for candidate deletion. If you open an issue, please
+include these debug logs as they are very helpful in finding and fixing any
+bugs.
+
+
+
 
 [artifact-registry]: https://cloud.google.com/artifact-registry
-[cloud-build]: https://cloud.google.com/build/
-[cloud-pubsub]: https://cloud.google.com/pubsub/
-[cloud-run]: https://cloud.google.com/run/
-[cloud-scheduler]: https://cloud.google.com/scheduler/
-[cloud-sdk]: https://cloud.google.com/sdk
-[cloud-shell]: https://cloud.google.com/shell
 [container-registry]: https://cloud.google.com/container-registry
-[gcr-cleaner-godoc]: https://godoc.org/github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner
-[gcrgc.sh]: https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7
+[docker-hub]: https://hub.docker.com
 [go-re]: https://golang.org/pkg/regexp/syntax/
