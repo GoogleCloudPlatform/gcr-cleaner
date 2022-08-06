@@ -44,13 +44,14 @@ var (
 var (
 	reposMap = make(map[string]struct{}, 4)
 
-	tokenPtr     = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	recursivePtr = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
-	gracePtr     = flag.Duration("grace", 0, "Grace period")
-	tagFilterAny = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
-	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
-	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
-	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	tokenPtr          = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
+	serviceAccountPtr = flag.String("service-account", os.Getenv("GCRCLEANER_SERVICE_ACCOUNT"), "Authentication service account")
+	recursivePtr      = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
+	gracePtr          = flag.Duration("grace", 0, "Grace period")
+	tagFilterAny      = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
+	tagFilterAll      = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
+	keepPtr           = flag.Int("keep", 0, "Minimum to keep")
+	dryRunPtr         = flag.Bool("dry-run", false, "Do a noop on delete api call")
 )
 
 func main() {
@@ -120,6 +121,9 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	if *tokenPtr != "" {
 		logger.Debug("using token from flag for authentication")
 		auther = &gcrauthn.Bearer{Token: *tokenPtr}
+	} else if *serviceAccountPtr != "" {
+		logger.Debug("using service account from flag for authentication")
+		auther = gcrgoogle.NewJSONKeyAuthenticator(*serviceAccountPtr)
 	} else {
 		logger.Debug("using default token resolution for authentication")
 		var err error
