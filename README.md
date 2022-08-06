@@ -34,6 +34,14 @@ us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 
 The payload is expected to be JSON with the following fields:
 
+- `token` - See [Authentication](#authentication) section. This value can also be
+  provided as `GCRCLEANER_TOKEN` environment variable.
+
+- `service-account` - See [Authentication](#authentication) section. This value can
+  also be provided as `GCRCLEANER_SERVICE_ACCOUNT` environment variable. This
+  value is specified as contents of a service account json file. More information
+  [here](https://cloud.google.com/container-registry/docs/advanced-authentication#json_key_file).
+
 - `repos` - List of the full names of the repositories to clean (e.g.
   `["gcr.io/project/repo"]`. This field is required.
 
@@ -97,6 +105,21 @@ The payload is expected to be JSON with the following fields:
     easiest way to mitigate this is to practice the Principle of Least Privilege
     and create a dedicated service account that has granular permissions on a
     subset of repositories.
+
+
+## Authentication
+
+By default, GCR Cleaner tries to find credentials using the following order:
+
+1. `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+2. `application_default_credentials.json` file
+3. Google App Engine credentials
+4. Google Metadata server
+
+If either `token` or `service-account` parameters or environment variables are
+set, GCR Cleaner uses those credentials.
+
+It is required to provide any of the above-mentioned credentials.
 
 
 ## Permissions
