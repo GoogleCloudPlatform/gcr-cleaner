@@ -13,56 +13,51 @@
 # limitations under the License.
 
 steps:
-- id: 'build-cli'
-  name: 'docker:20'
-  args: [
-    'build',
-    '--build-arg', 'SERVICE=gcr-cleaner-cli',
-    '--tag', 'gcr.io/${PROJECT_ID}/gcr-cleaner-cli',
-    '--tag', 'asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
-    '--tag', 'europe-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
-    '--tag', 'us-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
-    '.'
-  ]
-  waitFor: ['-']
+  - id: 'install-qemu'
+    name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'run',
+      '--rm',
+      '--privileged',
+      'multiarch/qemu-user-static',
+    ]
 
-- id: 'build-server'
-  name: 'docker:20'
-  args: [
-    'build',
-    '--build-arg', 'SERVICE=gcr-cleaner-server',
-    '--tag', 'gcr.io/${PROJECT_ID}/gcr-cleaner',
-    '--tag', 'asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',
-    '--tag', 'europe-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',
-    '--tag', 'us-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',
-    '.'
-  ]
-  waitFor: ['-']
+  - id: 'create-builder'
+    name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'create',
+      '--name', 'my-builder',
+      '--driver-opt', 'network=cloudbuild',
+      '--use',
+    ]
 
-- id: 'push-cli'
-  name: 'docker:20'
-  entrypoint: '/bin/sh'
-  args:
-  - '-euo'
-  - 'pipefail'
-  - '-c'
-  - |-
-    docker push gcr.io/${PROJECT_ID}/gcr-cleaner-cli
-    docker push asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli
-    docker push europe-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli
-    docker push us-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli
-  waitFor: ['build-cli']
+  - id: 'cli'
+    name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--push',
+      '--platform', 'linux/amd64,linux/arm64',
+      '--build-arg', 'SERVICE=gcr-cleaner-cli',
+      '--tag', 'gcr.io/${PROJECT_ID}/gcr-cleaner-cli',
+      '--tag', 'asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
+      '--tag', 'europe-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
+      '--tag', 'us-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner-cli',
+      '.',
+    ]
 
-- id: 'push-server'
-  name: 'docker:20'
-  entrypoint: '/bin/sh'
-  args:
-  - '-euo'
-  - 'pipefail'
-  - '-c'
-  - |-
-    docker push gcr.io/${PROJECT_ID}/gcr-cleaner
-    docker push asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner
-    docker push europe-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner
-    docker push us-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner
-  waitFor: ['build-server']
+  - id: 'server'
+    name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--push',
+      '--platform', 'linux/amd64,linux/arm64',
+      '--build-arg', 'SERVICE=gcr-cleaner-server',
+      '--tag', 'gcr.io/${PROJECT_ID}/gcr-cleaner',
+      '--tag', 'asia-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',
+      '--tag', 'europe-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',
+      '--tag', 'us-docker.pkg.dev/${PROJECT_ID}/gcr-cleaner/gcr-cleaner',
+      '.',
+    ]ZZ

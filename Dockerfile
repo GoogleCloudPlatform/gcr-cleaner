@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.18 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.18 AS builder
 
 ARG SERVICE
 
 ENV GO111MODULE=on \
   GOPROXY=https://proxy.golang.org,direct \
-  CGO_ENABLED=0 \
-  GOOS=linux \
-  GOARCH=amd64
+  CGO_ENABLED=0
 
 WORKDIR /src
 COPY . .
+
+RUN go mod download
 
 RUN go build \
   -a \
