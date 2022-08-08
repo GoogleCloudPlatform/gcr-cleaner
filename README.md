@@ -34,6 +34,10 @@ us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 
 The payload is expected to be JSON with the following fields:
 
+- `token` - Authentication token. See [Authentication](#authentication) section
+  for further information. This value can also be provided as `GCRCLEANER_TOKEN`
+  environment variable.
+
 - `repos` - List of the full names of the repositories to clean (e.g.
   `["gcr.io/project/repo"]`. This field is required.
 
@@ -145,6 +149,22 @@ gcloud projects add-iam-policy-binding "my-project" \
 ```
 
 
+## Authentication
+
+By default, GCR Cleaner tries to find credentials using the following order
+(compare to [golang.org/x/oauth2/google][oauth2-google]):
+
+1. `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+2. `application_default_credentials.json` file
+3. Google App Engine credentials
+4. Google Metadata server
+
+If the `token` flag or `GCRCLEANER_TOKEN` environment variable is passed,
+GCR Cleaner uses those credentials instead.
+
+It is required to provide any of the above-mentioned credentials.
+
+
 ## Debugging
 
 By default, GCR Cleaner only emits user-level logging at the "info" level. More logs are available at the "debug" level. To configure the log level, set the `GCRCLEANER_LOG` environment variable to the desired log value:
@@ -165,3 +185,4 @@ bugs.
 [container-registry]: https://cloud.google.com/container-registry
 [docker-hub]: https://hub.docker.com
 [go-re]: https://golang.org/pkg/regexp/syntax/
+[oauth2-google]: https://pkg.go.dev/golang.org/x/oauth2/google
