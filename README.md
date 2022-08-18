@@ -61,18 +61,18 @@ The payload is expected to be JSON with the following fields:
   This algorithm exists to preserve ordering for containers that are moved
   between registries.
 
-- `tag_filter_any` - If specified, any image with at **least one tag** that
+- `tag-filter-any` - If specified, any image with at **least one tag** that
   matches this given regular expression will be deleted. The image will be
   deleted even if it has other tags that do not match the given regular
   expression. The regular expressions are parsed according to the [Go regexp
   package][go-re].
 
-- `tag_filter_all` - If specified, any image where **all tags** match this given
+- `tag-filter-all` - If specified, any image where **all tags** match this given
   regular expression will be deleted. The image will not be delete if it has
   other tags that do not match the given regular expression. The regular
   expressions are parsed according to the [Go regexp package][go-re].
 
-- `dry_run` - If set to true, will not delete anything and outputs what would
+- `dry-run` - If set to true, will not delete anything and outputs what would
   have been deleted.
 
 - `recursive` - If set to true, will recursively search all child repositories.
