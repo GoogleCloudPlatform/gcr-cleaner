@@ -36,26 +36,25 @@ import (
 // to a very old value[2] and thus sorting by creation date fails.
 //
 // [1]: https://en.wikipedia.org/wiki/Docker_(software)
-//
 // [2]: https://buildpacks.io/docs/features/reproducibility/
 var dockerExistence = time.Date(2013, time.March, 20, 0, 0, 0, 0, time.UTC)
 
 // Cleaner is a gcr cleaner.
 type Cleaner struct {
-	auther      gcrauthn.Authenticator
+	keychain    gcrauthn.Keychain
 	logger      *Logger
 	concurrency int
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
-func NewCleaner(auther gcrauthn.Authenticator, logger *Logger, c int) (*Cleaner, error) {
+func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, c int) (*Cleaner, error) {
 	if c < 1 {
 		return nil, fmt.Errorf("concurrency must be at least 1, got %d", c)
 	}
 
 	return &Cleaner{
-		auther:      auther,
+		keychain:    keychain,
 		concurrency: c,
 		logger:      logger,
 	}, nil
@@ -72,7 +71,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 
 	tags, err := gcrgoogle.List(gcrrepo,
 		gcrgoogle.WithContext(ctx),
-		gcrgoogle.WithAuth(c.auther))
+		gcrgoogle.WithAuthFromKeychain(c.keychain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
 	}
@@ -222,7 +221,7 @@ type manifest struct {
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 	if err := gcrremote.Delete(ref,
-		gcrremote.WithAuth(c.auther),
+		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithContext(ctx)); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", ref, err)
 	}
@@ -329,7 +328,7 @@ func (c *Cleaner) ListChildRepositories(ctx context.Context, roots []string) ([]
 
 		// List all repos in the registry.
 		allRepos, err := gcrremote.Catalog(ctx, *registry,
-			gcrremote.WithAuth(c.auther),
+			gcrremote.WithAuthFromKeychain(c.keychain),
 			gcrremote.WithContext(ctx))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch catalog for registry %q: %w", registry.Name(), err)
