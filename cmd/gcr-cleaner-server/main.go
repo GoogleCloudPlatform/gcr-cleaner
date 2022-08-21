@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/bearerkeychain"
 	"github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
@@ -60,21 +61,14 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	}
 	addr := ":" + port
 
-	var auther gcrauthn.Authenticator
-	if token := os.Getenv("GCRCLEANER_TOKEN"); token != "" {
-		logger.Debug("using token from GCRCLEANER_TOKEN for authentication")
-		auther = &gcrauthn.Bearer{Token: token}
-	} else {
-		logger.Debug("using default token resolution for authentication")
-		var err error
-		auther, err = gcrgoogle.NewEnvAuthenticator()
-		if err != nil {
-			return fmt.Errorf("failed to setup auther: %w", err)
-		}
-	}
+	keychain := gcrauthn.NewMultiKeychain(
+		bearerkeychain.New(os.Getenv("GCRCLEANER_TOKEN")),
+		gcrauthn.DefaultKeychain,
+		gcrgoogle.Keychain,
+	)
 
 	concurrency := runtime.NumCPU()
-	cleaner, err := gcrcleaner.NewCleaner(auther, logger, concurrency)
+	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, concurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
 	}

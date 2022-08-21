@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/bearerkeychain"
 	"github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
@@ -115,22 +116,14 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		return fmt.Errorf("failed to parse tag filter: %w", err)
 	}
 
-	// Try to find the "best" authentication.
-	var auther gcrauthn.Authenticator
-	if *tokenPtr != "" {
-		logger.Debug("using token from flag for authentication")
-		auther = &gcrauthn.Bearer{Token: *tokenPtr}
-	} else {
-		logger.Debug("using default token resolution for authentication")
-		var err error
-		auther, err = gcrgoogle.NewEnvAuthenticator()
-		if err != nil {
-			return fmt.Errorf("failed to setup auther: %w", err)
-		}
-	}
+	keychain := gcrauthn.NewMultiKeychain(
+		bearerkeychain.New(*tokenPtr),
+		gcrauthn.DefaultKeychain,
+		gcrgoogle.Keychain,
+	)
 
 	concurrency := runtime.NumCPU()
-	cleaner, err := gcrcleaner.NewCleaner(auther, logger, concurrency)
+	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, concurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
 	}
