@@ -84,7 +84,6 @@ also a community-supported [Terraform module for gcr-cleaner][tf-module].
     ```sh
     # Replace this with the full name of the repository for which you
     # want to cleanup old references, for example:
-    export REPO="gcr.io/${PROJECT_ID}/my-image"
     export REPO="us-docker-pkg.dev/${PROJECT_ID}/my-repo/my-image"
     ```
 

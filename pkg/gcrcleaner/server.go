@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/version"
 )
 
 const (
@@ -130,6 +132,8 @@ func (s *Server) HTTPHandler() http.HandlerFunc {
 
 // clean reads the given body as JSON and starts a cleaner instance.
 func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]string, int, error) {
+	s.logger.Debug("starting clean request", "version", version.HumanVersion)
+
 	var p Payload
 	if err := json.NewDecoder(r).Decode(&p); err != nil {
 		return nil, 500, fmt.Errorf("failed to decode payload as JSON: %w", err)

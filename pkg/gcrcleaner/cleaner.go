@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/version"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
@@ -38,6 +39,10 @@ import (
 // [1]: https://en.wikipedia.org/wiki/Docker_(software)
 // [2]: https://buildpacks.io/docs/features/reproducibility/
 var dockerExistence = time.Date(2013, time.March, 20, 0, 0, 0, 0, time.UTC)
+
+// userAgent is the HTTP user agent.
+var userAgent = fmt.Sprintf("%s/%s (+https://github.com/GoogleCloudPlatform/gcr-cleaner)",
+	version.Name, version.Version)
 
 // Cleaner is a gcr cleaner.
 type Cleaner struct {
@@ -71,6 +76,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 
 	tags, err := gcrgoogle.List(gcrrepo,
 		gcrgoogle.WithContext(ctx),
+		gcrgoogle.WithUserAgent(userAgent),
 		gcrgoogle.WithAuthFromKeychain(c.keychain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
@@ -221,6 +227,7 @@ type manifest struct {
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 	if err := gcrremote.Delete(ref,
+		gcrremote.WithUserAgent(userAgent),
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithContext(ctx)); err != nil {
 		return fmt.Errorf("failed to delete %s: %w", ref, err)
@@ -328,6 +335,7 @@ func (c *Cleaner) ListChildRepositories(ctx context.Context, roots []string) ([]
 
 		// List all repos in the registry.
 		allRepos, err := gcrremote.Catalog(ctx, *registry,
+			gcrremote.WithUserAgent(userAgent),
 			gcrremote.WithAuthFromKeychain(c.keychain),
 			gcrremote.WithContext(ctx))
 		if err != nil {
