@@ -259,9 +259,6 @@ checksum:
 signs:
   -
     artifacts: 'checksum'
-    ids:
-      - 'cli'
-      - 'server'
     args:
       - '--batch'
       - '--local-user'
