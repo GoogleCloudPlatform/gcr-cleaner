@@ -21,7 +21,8 @@ builds:
       - '-X={{ .ModulePath }}/internal/version.Version={{ .Version }}'
       - '-X={{ .ModulePath }}/internal/version.Commit={{ .FullCommit }}'
       - '-extldflags=-static'
-    main: './cmd/gcr-cleaner-cli/...'
+    main: './cmd/gcr-cleaner-cli/main.go'
+    binary: 'gcr-cleaner-cli'
     goos:
       - 'darwin'
       - 'linux'
@@ -48,7 +49,8 @@ builds:
       - '-X={{ .ModulePath }}/internal/version.Version={{ .Version }}'
       - '-X={{ .ModulePath }}/internal/version.Commit={{ .FullCommit }}'
       - '-extldflags=-static'
-    main: './cmd/gcr-cleaner-server/...'
+    main: './cmd/gcr-cleaner-server/main.go'
+    binary: 'gcr-cleaner'
     goos:
       - 'darwin'
       - 'linux'
@@ -228,7 +230,23 @@ docker_manifests:
       - 'us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner:latest-arm64'
 
 archives:
-  - format: 'tar.gz'
+  # cli
+  -
+    id: 'cli'
+    format: 'tar.gz'
+    builds:
+      - 'cli'
+    name_template: 'gcr-cleaner-cli_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: 'windows'
+        format: 'zip'
+
+  # server
+  -
+    id: 'server'
+    format: 'tar.gz'
+    builds:
+      - 'server'
     name_template: 'gcr-cleaner_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     format_overrides:
       - goos: 'windows'
@@ -239,7 +257,11 @@ checksum:
   algorithm: 'sha512'
 
 signs:
-  - artifacts: 'checksum'
+  -
+    artifacts: 'checksum'
+    ids:
+      - 'cli'
+      - 'server'
     args:
       - '--batch'
       - '--local-user'
