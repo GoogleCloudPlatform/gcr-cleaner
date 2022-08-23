@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/bearerkeychain"
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/version"
 	"github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
@@ -52,6 +53,7 @@ var (
 	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
 	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
 	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	versionPtr   = flag.Bool("version", false, "Print version information and exit")
 )
 
 func main() {
@@ -87,6 +89,11 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if *versionPtr {
+		fmt.Fprintf(stderr, "%s\n", version.HumanVersion)
+		os.Exit(0)
+	}
 
 	if err := realMain(ctx, logger); err != nil {
 		cancel()

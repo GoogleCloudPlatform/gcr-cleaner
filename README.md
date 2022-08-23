@@ -23,19 +23,22 @@ Pre-built container images are available at the following locations. We do not
 offer versioned container images.
 
 ```text
-gcr.io/gcr-cleaner/gcr-cleaner
 asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 europe-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner
 ```
 
 
-## Payload &amp; parameters
+## Server Payload &amp; parameters
+
+**⚠️ This section is for the _server_ payload. If you are using the CLI tool,
+run `gcr-cleaner -h` to see the list of flags and their descriptions.**
 
 The payload is expected to be JSON with the following fields:
 
 - `repos` - List of the full names of the repositories to clean (e.g.
-  `["gcr.io/project/repo"]`. This field is required.
+  `["us-docker.pkg.dev/project/my/repo", "gcr.io/my/repo"]`. This field is
+  required.
 
 - `grace` - Relative duration in which to ignore references. This value is
   specified as a time duration value like "5s" or "3h". If set, refs newer than
