@@ -46,14 +46,15 @@ var (
 var (
 	reposMap = make(map[string]struct{}, 4)
 
-	tokenPtr     = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	recursivePtr = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
-	gracePtr     = flag.Duration("grace", 0, "Grace period")
-	tagFilterAny = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
-	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
-	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
-	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
-	versionPtr   = flag.Bool("version", false, "Print version information and exit")
+	tokenPtr           = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
+	recursivePtr       = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
+	gracePtr           = flag.Duration("grace", 0, "Grace period")
+	tagFilterAny       = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
+	tagFilterAll       = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
+	tagFilterNegatePtr = flag.Bool("tag-filter-negate", false, "Negate the tag filter match")
+	keepPtr            = flag.Int("keep", 0, "Minimum to keep")
+	dryRunPtr          = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	versionPtr         = flag.Bool("version", false, "Print version information and exit")
 )
 
 func main() {
@@ -173,7 +174,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	var errs []error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *dryRunPtr)
+		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *tagFilterNegatePtr, *dryRunPtr)
 		if err != nil {
 			errs = append(errs, err)
 		}

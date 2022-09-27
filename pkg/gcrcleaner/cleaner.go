@@ -67,7 +67,7 @@ func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, c int) (*Cleaner, er
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since"
 // and higher than the "keep" amount.
-func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int, tagFilter TagFilter, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int, tagFilter TagFilter, tagFilterNegate bool, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -140,7 +140,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 			"created", m.Info.Created.Format(time.RFC3339),
 			"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
-		if c.shouldDelete(m, since, tagFilter) {
+		if c.shouldDelete(m, since, tagFilter, tagFilterNegate) {
 			// Keep a certain amount of images
 			if keepCount < keep {
 				c.logger.Debug("skipping deletion because of keep count",
@@ -238,7 +238,7 @@ func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 
 // shouldDelete returns true if the manifest was created before the given
 // timestamp and either has no tags or has tags that match the given filter.
-func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter) bool {
+func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter, tagFilterNegate bool) bool {
 	// Immediately exclude images that have been uploaded after the given time.
 	if uploaded := m.Info.Uploaded.UTC(); uploaded.After(since) {
 		c.logger.Debug("should not delete",
@@ -264,14 +264,26 @@ func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter
 	// If tagged images are allowed and the given filter matches the list of tags,
 	// this is a deletion candidate. The default tag filter is to reject all
 	// strings.
-	if tagFilter.Matches(m.Info.Tags) {
-		c.logger.Debug("should delete",
-			"repo", m.Repo,
-			"digest", m.Digest,
-			"reason", "matches tag filter",
-			"tags", m.Info.Tags,
-			"tag_filter", tagFilter.Name())
-		return true
+	if tagFilterNegate {
+		if !tagFilter.Matches(m.Info.Tags) {
+			c.logger.Debug("should delete",
+				"repo", m.Repo,
+				"digest", m.Digest,
+				"reason", "does NOT match tag filter",
+				"tags", m.Info.Tags,
+				"tag_filter", tagFilter.Name())
+			return true
+		}
+	} else {
+		if tagFilter.Matches(m.Info.Tags) {
+			c.logger.Debug("should delete",
+				"repo", m.Repo,
+				"digest", m.Digest,
+				"reason", "matches tag filter",
+				"tags", m.Info.Tags,
+				"tag_filter", tagFilter.Name())
+			return true
+		}
 	}
 
 	// If we got this far, it'ts not a viable deletion candidate.

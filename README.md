@@ -75,6 +75,9 @@ The payload is expected to be JSON with the following fields:
   other tags that do not match the given regular expression. The regular
   expressions are parsed according to the [Go regexp package][go-re].
 
+- `tag_filter_negate` - If specified, will negate the logic of the tag filter match
+  causing the image to be deleted if the tag filter does NOT match.
+
 - `dry_run` - If set to true, will not delete anything and outputs what would
   have been deleted.
 
