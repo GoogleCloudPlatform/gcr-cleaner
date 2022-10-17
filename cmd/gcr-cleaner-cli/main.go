@@ -156,7 +156,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 			"out", allRepos)
 
 		// This is safe because ListChildRepositories is guaranteed to include at
-		// least the list repos givenh to it.
+		// least the list repos given to it.
 		repos = allRepos
 	}
 
