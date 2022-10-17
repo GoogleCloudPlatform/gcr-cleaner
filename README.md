@@ -14,6 +14,12 @@ For one-off tasks, you can also run GCR Cleaner locally:
 docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
 ```
 
+If you want gcr-cleaner to inherit the authentication from your local gcloud installation, you must mount the gcloud directory into the container:
+
+```text
+docker run -v "${HOME}/.config/gcloud:/.config/gcloud" -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
+```
+
 **This is not an official Google product.**
 
 
