@@ -12,6 +12,7 @@ For one-off tasks, you can also run GCR Cleaner locally:
 
 ```text
 docker run -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
+docker run -v $HOME/.config/gcloud:/.config/gcloud -it us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli
 ```
 
 **This is not an official Google product.**
