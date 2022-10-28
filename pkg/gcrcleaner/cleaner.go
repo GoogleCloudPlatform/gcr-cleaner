@@ -165,7 +165,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 				tagged := gcrrepo.Tag(tag)
 				if !dryRun {
 					if err := c.deleteOne(ctx, tagged); err != nil {
-						return nil, fmt.Errorf("failed to delete %s: %w", tagged, err)
+						return nil, fmt.Errorf("failed to delete tag %s: %w", tagged, err)
 					}
 				}
 
@@ -191,7 +191,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 				if !dryRun {
 					if err := c.deleteOne(ctx, ref); err != nil {
 						errsLock.Lock()
-						errs = append(errs, err)
+						errs = append(errs, fmt.Errorf("failed to delete digest %s: %w", ref, err))
 						errsLock.Unlock()
 					}
 				}
@@ -230,7 +230,7 @@ func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 		gcrremote.WithUserAgent(userAgent),
 		gcrremote.WithAuthFromKeychain(c.keychain),
 		gcrremote.WithContext(ctx)); err != nil {
-		return fmt.Errorf("failed to delete %s: %w", ref, err)
+		return err
 	}
 
 	return nil
