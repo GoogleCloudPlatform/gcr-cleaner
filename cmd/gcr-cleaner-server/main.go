@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/bearerkeychain"
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/version"
 	"github.com/GoogleCloudPlatform/gcr-cleaner/pkg/gcrcleaner"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
@@ -55,6 +56,9 @@ func main() {
 }
 
 func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
+	logger.Debug("server is starting", "version", version.HumanVersion)
+	defer logger.Debug("server finished")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
