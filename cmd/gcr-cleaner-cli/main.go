@@ -104,6 +104,9 @@ func main() {
 }
 
 func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
+	logger.Debug("cli is starting", "version", version.HumanVersion)
+	defer logger.Debug("cli finished")
+
 	if args := flag.Args(); len(args) > 0 {
 		return fmt.Errorf("expected zero arguments, got %d: %q", len(args), args)
 	}
