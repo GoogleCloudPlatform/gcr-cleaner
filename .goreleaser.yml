@@ -270,3 +270,4 @@ signs:
 
 release:
   draft: false
+  mode: 'replace'
