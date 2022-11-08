@@ -115,7 +115,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 	})
 
 	// Generate an ordered map
-	manifestListForLog := make([]map[string]any, len(manifests))
+	manifestListForLog := make([]map[string]any, 0, len(manifests))
 	for _, m := range manifests {
 		manifestListForLog = append(manifestListForLog, map[string]any{
 			"repo":     m.Repo,
