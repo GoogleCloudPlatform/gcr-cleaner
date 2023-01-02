@@ -190,9 +190,15 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 
 				if !dryRun {
 					if err := c.deleteOne(ctx, ref); err != nil {
-						errsLock.Lock()
-						errs = append(errs, fmt.Errorf("failed to delete digest %s: %w", ref, err))
-						errsLock.Unlock()
+						if (strings.Contains(err.Error(), "GOOGLE_MANIFEST_DANGLING_PARENT_IMAGE")) {
+							c.logger.Debug("could not delete digest due to dangling parent image",
+								"repo", repo,
+								"digest", m.Digest)
+						} else {
+							errsLock.Lock()
+							errs = append(errs, fmt.Errorf("failed to delete digest %s: %w", ref, err))
+							errsLock.Unlock()
+						}
 					}
 				}
 
