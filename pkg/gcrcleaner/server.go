@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
@@ -81,7 +80,7 @@ func (s *Server) PubSubHandler(cache Cache) http.HandlerFunc {
 		}
 
 		// Start a goroutine to delete the images
-		body := ioutil.NopCloser(bytes.NewReader(m.Message.Data))
+		body := io.NopCloser(bytes.NewReader(m.Message.Data))
 		go func() {
 			// Intentionally don't use the request context, since it terminates but
 			// the background job should still be processing.
