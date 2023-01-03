@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -46,14 +45,15 @@ var (
 var (
 	reposMap = make(map[string]struct{}, 4)
 
-	tokenPtr     = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
-	recursivePtr = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
-	gracePtr     = flag.Duration("grace", 0, "Grace period")
-	tagFilterAny = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
-	tagFilterAll = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
-	keepPtr      = flag.Int("keep", 0, "Minimum to keep")
-	dryRunPtr    = flag.Bool("dry-run", false, "Do a noop on delete api call")
-	versionPtr   = flag.Bool("version", false, "Print version information and exit")
+	tokenPtr       = flag.String("token", os.Getenv("GCRCLEANER_TOKEN"), "Authentication token")
+	recursivePtr   = flag.Bool("recursive", false, "Clean all sub-repositories under the -repo root")
+	gracePtr       = flag.Duration("grace", 0, "Grace period")
+	tagFilterAny   = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
+	tagFilterAll   = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
+	keepPtr        = flag.Int64("keep", 0, "Minimum to keep")
+	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
+	concurrencyPtr = flag.Int64("concurrency", 20, "Concurrent requests (defaults to number of CPUs)")
+	versionPtr     = flag.Bool("version", false, "Print version information and exit")
 )
 
 func main() {
@@ -132,8 +132,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		gcrgoogle.Keychain,
 	)
 
-	concurrency := runtime.NumCPU()
-	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, concurrency)
+	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, *concurrencyPtr)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
 	}

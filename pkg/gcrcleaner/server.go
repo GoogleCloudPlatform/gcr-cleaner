@@ -228,7 +228,7 @@ type Payload struct {
 	Grace duration `json:"grace"`
 
 	// Keep is the minimum number of images to keep.
-	Keep int `json:"keep"`
+	Keep int64 `json:"keep"`
 
 	// TagFilterAny is the tags pattern to be allowed removing. If given, any
 	// image with at least one tag that matches this given regular expression will
