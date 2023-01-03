@@ -24,11 +24,11 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/version"
+	"github.com/GoogleCloudPlatform/gcr-cleaner/internal/worker"
 	gcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrgoogle "github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"golang.org/x/sync/semaphore"
 )
 
 // dockerExistence is date of the first release of Docker[1] (then dotCloud) and
@@ -48,26 +48,22 @@ var userAgent = fmt.Sprintf("%s/%s (+https://github.com/GoogleCloudPlatform/gcr-
 type Cleaner struct {
 	keychain    gcrauthn.Keychain
 	logger      *Logger
-	concurrency int
+	concurrency int64
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
-func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, c int) (*Cleaner, error) {
-	if c < 1 {
-		return nil, fmt.Errorf("concurrency must be at least 1, got %d", c)
-	}
-
+func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, concurrency int64) (*Cleaner, error) {
 	return &Cleaner{
 		keychain:    keychain,
-		concurrency: c,
+		concurrency: concurrency,
 		logger:      logger,
 	}, nil
 }
 
 // Clean deletes old images from GCR that are (un)tagged and older than "since"
 // and higher than the "keep" amount.
-func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int, tagFilter TagFilter, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int64, tagFilter TagFilter, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -81,15 +77,6 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
 	}
-
-	workers := int64(c.concurrency)
-	sem := semaphore.NewWeighted(workers)
-
-	var keepCount = 0
-	var deleted = make([]string, 0, len(tags.Manifests))
-	var deletedLock sync.Mutex
-	var errs = make([]error, 0)
-	var errsLock sync.RWMutex
 
 	var manifests = make([]*manifest, 0, len(tags.Manifests))
 	for k, m := range tags.Manifests {
@@ -129,8 +116,16 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 		"keep", keep,
 		"manifests", manifestListForLog)
 
+	// Create the worker.
+	w := worker.New[string](c.concurrency)
+
+	var keepCount = int64(0)
+	var digestsToDelete []string
+	var toRetry []string
+	var toRetryLock sync.Mutex
+
+	// Delete all the manifests.
 	for _, m := range manifests {
-		// Store copy of manifest for thread safety in delete job pool
 		m := m
 
 		c.logger.Debug("processing manifest",
@@ -140,23 +135,37 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 			"created", m.Info.Created.Format(time.RFC3339),
 			"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
-		if c.shouldDelete(m, since, tagFilter) {
-			// Keep a certain amount of images
-			if keepCount < keep {
-				c.logger.Debug("skipping deletion because of keep count",
-					"repo", repo,
-					"digest", m.Digest,
-					"keep", keep,
-					"keep_count", keepCount,
-					"created", m.Info.Created.Format(time.RFC3339),
-					"uploaded", m.Info.Uploaded.Format(time.RFC3339))
+		// Do nothing if this is not a candidate.
+		if !c.shouldDelete(m, since, tagFilter) {
+			c.logger.Debug("skipping deletion because of filters",
+				"repo", repo,
+				"digest", m.Digest,
+				"tags", m.Info.Tags)
+			continue
+		}
 
-				keepCount++
-				continue
-			}
+		// Keep a certain amount of images.
+		if keepCount < keep {
+			c.logger.Debug("skipping deletion because of keep count",
+				"repo", repo,
+				"digest", m.Digest,
+				"keep", keep,
+				"keep_count", keepCount,
+				"created", m.Info.Created.Format(time.RFC3339),
+				"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
-			// Deletes all tags before deleting the image
-			for _, tag := range m.Info.Tags {
+			keepCount++
+			continue
+		}
+
+		// Make note that we need to delete this digest.
+		digestsToDelete = append(digestsToDelete, m.Digest)
+
+		// Delete all tags before attempting to delete the digests later.
+		for _, tag := range m.Info.Tags {
+			tag := tag
+
+			if err := w.Do(ctx, func() (string, error) {
 				c.logger.Debug("deleting tag",
 					"repo", repo,
 					"digest", m.Digest,
@@ -165,55 +174,137 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 				tagged := gcrrepo.Tag(tag)
 				if !dryRun {
 					if err := c.deleteOne(ctx, tagged); err != nil {
-						return nil, fmt.Errorf("failed to delete tag %s: %w", tagged, err)
+						return "", fmt.Errorf("failed to delete tag %s: %w", tagged, err)
 					}
 				}
-
-				deletedLock.Lock()
-				deleted = append(deleted, tagged.Identifier())
-				deletedLock.Unlock()
+				return tagged.Identifier(), nil
+			}); err != nil {
+				return nil, err
 			}
-
-			digest := m.Digest
-			ref := gcrrepo.Digest(digest)
-
-			if err := sem.Acquire(ctx, 1); err != nil {
-				return nil, fmt.Errorf("failed to acquire semaphore: %w", err)
-			}
-
-			go func() {
-				defer sem.Release(1)
-
-				c.logger.Debug("deleting digest",
-					"repo", repo,
-					"digest", m.Digest)
-
-				if !dryRun {
-					if err := c.deleteOne(ctx, ref); err != nil {
-						errsLock.Lock()
-						errs = append(errs, fmt.Errorf("failed to delete digest %s: %w", ref, err))
-						errsLock.Unlock()
-					}
-				}
-
-				deletedLock.Lock()
-				deleted = append(deleted, digest)
-				deletedLock.Unlock()
-			}()
 		}
 	}
 
-	// Wait for everything to finish
-	if err := sem.Acquire(ctx, workers); err != nil {
-		return nil, fmt.Errorf("failed to wait for semaphore: %w", err)
+	// Delete the digest. This is only safe after all the tags have been
+	// deleted, so wait for that to finish first.
+	if err := w.Wait(ctx); err != nil {
+		return nil, err
+	}
+	for _, digest := range digestsToDelete {
+		digest := digest
+
+		if err := w.Do(ctx, func() (string, error) {
+			c.logger.Debug("deleting digest",
+				"repo", repo,
+				"digest", digest)
+
+			grcdigest := gcrrepo.Digest(digest)
+			if !dryRun {
+				if err := c.deleteOne(ctx, grcdigest); err != nil {
+					// We cannot delete fat manifests which still have images. There's no
+					// easy way to build a DAG of these, so just push them onto the end
+					// and retry again later.
+					if strings.Contains(err.Error(), "GOOGLE_MANIFEST_DANGLING_PARENT_IMAGE") {
+						c.logger.Debug("failed to delete digest due to dangling parent, retrying later",
+							"repo", repo,
+							"digest", digest)
+
+						toRetryLock.Lock()
+						toRetry = append(toRetry, digest)
+						toRetryLock.Unlock()
+						return "", nil
+					}
+
+					return "", fmt.Errorf("failed to delete digest %s: %w", digest, err)
+				}
+			}
+			return grcdigest.Identifier(), nil
+		}); err != nil {
+			return nil, err
+		}
 	}
 
-	// Aggregate any errors
+	// Wait for all those deletions to finish.
+	if err := w.Wait(ctx); err != nil {
+		return nil, err
+	}
+
+	// Perform any retries.
+	for i := 0; i < 3; i++ {
+		if len(toRetry) == 0 {
+			break
+		}
+
+		c.logger.Debug("retrying failed deletions",
+			"attempt", i+1,
+			"toRetry", toRetry)
+
+		// We don't need as many pre-flight checks, since these entries were already
+		// marked for deletion.
+		toRetryCopy := make([]string, 0, len(toRetry))
+		for _, digest := range toRetry {
+			digest := digest
+
+			if err := w.Do(ctx, func() (string, error) {
+				c.logger.Debug("deleting digest (retry)",
+					"repo", repo,
+					"digest", digest)
+
+				grcdigest := gcrrepo.Digest(digest)
+				if !dryRun {
+					if err := c.deleteOne(ctx, grcdigest); err != nil {
+						// We cannot delete fat manifests which still have images. There's no
+						// easy way to build a DAG of these, so just push them onto the end
+						// and retry again later.
+						if strings.Contains(err.Error(), "GOOGLE_MANIFEST_DANGLING_PARENT_IMAGE") {
+							toRetryLock.Lock()
+							toRetryCopy = append(toRetryCopy, digest)
+							toRetryLock.Unlock()
+							return "", nil
+						}
+						return "", fmt.Errorf("failed to delete digest %s: %w", digest, err)
+					}
+				}
+				return grcdigest.Identifier(), nil
+			}); err != nil {
+				return nil, err
+			}
+		}
+
+		// Wait for all those deletions to finish.
+		if err := w.Wait(ctx); err != nil {
+			return nil, err
+		}
+
+		// Update to the new retry list.
+		toRetry = toRetryCopy
+	}
+
+	// Wait for everything to finish.
+	results, err := w.Done(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Gather the results.
+	deleted := make([]string, 0, len(results))
+	errs := make([]error, 0, len(results))
+	for _, result := range results {
+		if result.Error != nil {
+			errs = append(errs, result.Error)
+			continue
+		}
+
+		if result.Value != "" {
+			deleted = append(deleted, result.Value)
+		}
+	}
+
+	// Aggregate any errors.
 	if err := ErrsToError(errs); err != nil {
 		return nil, err
 	}
 
-	// Return the list of deleted entries
+	// Return the list of deleted entries.
 	sort.Strings(deleted)
 	return deleted, nil
 }
@@ -227,9 +318,10 @@ type manifest struct {
 // deleteOne deletes a single repo ref using the supplied auth.
 func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 	if err := gcrremote.Delete(ref,
+		gcrremote.WithContext(ctx),
 		gcrremote.WithUserAgent(userAgent),
 		gcrremote.WithAuthFromKeychain(c.keychain),
-		gcrremote.WithContext(ctx)); err != nil {
+		gcrremote.WithJobs(int(c.concurrency))); err != nil {
 		return err
 	}
 
@@ -322,60 +414,100 @@ func (c *Cleaner) ListChildRepositories(ctx context.Context, roots []string) ([]
 		registriesMap[registryName] = &registry
 	}
 
-	// candidateRepos is the list of full repository names that match any of the
-	// given root repositories. This list is appended to so the range function
-	// below is psuedo-recursive.
-	candidateRepos := make([]string, 0, len(roots))
+	// Perform lookup in parallel.
+	w := worker.New[[]string](c.concurrency)
 
 	// Iterate through each registry, query the entire registry (yea, that's how
 	// you "search"), and collect a list of candidate repos.
 	for _, registry := range registriesMap {
-		c.logger.Debug("listing child repositories for registry",
-			"registry", registry.Name())
+		registry := registry
 
-		// List all repos in the registry.
-		allRepos, err := gcrremote.Catalog(ctx, *registry,
-			gcrremote.WithUserAgent(userAgent),
-			gcrremote.WithAuthFromKeychain(c.keychain),
-			gcrremote.WithContext(ctx))
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch catalog for registry %q: %w", registry.Name(), err)
-		}
+		if err := w.Do(ctx, func() ([]string, error) {
+			c.logger.Debug("listing child repositories for registry",
+				"registry", registry.Name())
 
-		c.logger.Debug("found child repositories for registry",
-			"registry", registry.Name(),
-			"repos", allRepos)
-
-		// Search through each repository and append any repository that matches any
-		// of the prefixes defined by roots.
-		for _, repo := range allRepos {
-			// Compute the full repo name by appending the repo to the registry
-			// identifier.
-			fullRepoName := registry.Name() + "/" + repo
-
-			hasPrefix := false
-			for _, root := range roots {
-				if strings.HasPrefix(fullRepoName, root) {
-					hasPrefix = true
-					break
-				}
+			// List all repos in the registry.
+			allRepos, err := gcrremote.Catalog(ctx, *registry,
+				gcrremote.WithContext(ctx),
+				gcrremote.WithUserAgent(userAgent),
+				gcrremote.WithAuthFromKeychain(c.keychain),
+				gcrremote.WithJobs(int(c.concurrency)))
+			if err != nil {
+				return nil, fmt.Errorf("failed to list child repositories for registry %s: %w", registry, err)
 			}
-			if hasPrefix {
+
+			c.logger.Debug("found child repositories for registry",
+				"registry", registry.Name(),
+				"repos", allRepos)
+
+			// Search through each repository and append any repository that matches any
+			// of the prefixes defined by roots.
+			var candidateRepos []string
+			for _, repo := range allRepos {
+				// Compute the full repo name by appending the repo to the registry
+				// identifier.
+				fullRepoName := registry.Name() + "/" + repo
+
+				hasPrefix := false
+				for _, root := range roots {
+					if strings.HasPrefix(fullRepoName, root) {
+						hasPrefix = true
+						break
+					}
+				}
+
+				if !hasPrefix {
+					c.logger.Debug("skipping repository candidate (does not match any roots)",
+						"registry", registry.Name(),
+						"repo", repo)
+					continue
+				}
+
 				c.logger.Debug("appending new repository candidate",
 					"registry", registry.Name(),
 					"repo", repo)
 				candidateRepos = append(candidateRepos, fullRepoName)
-			} else {
-				c.logger.Debug("skipping repository candidate (does not match any roots)",
-					"registry", registry.Name(),
-					"repo", repo)
+			}
+			return candidateRepos, nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Wait for everything to finish.
+	results, err := w.Done(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Gather the results.
+	reposMap := make(map[string]struct{})
+	errs := make([]error, 0, len(results))
+	for _, result := range results {
+		if result.Error != nil {
+			errs = append(errs, result.Error)
+			continue
+		}
+
+		for _, v := range result.Value {
+			if v != "" {
+				reposMap[v] = struct{}{}
 			}
 		}
 	}
 
+	// Aggregate any errors.
+	if err := ErrsToError(errs); err != nil {
+		return nil, err
+	}
+
 	// De-duplicate and sort the list.
-	sort.Strings(candidateRepos)
-	return candidateRepos, nil
+	repos := make([]string, 0, len(reposMap))
+	for repo := range reposMap {
+		repos = append(repos, repo)
+	}
+	sort.Strings(repos)
+	return repos, nil
 }
 
 // ErrsToError converts a list of errors into a single error. If the list is

@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -38,7 +38,19 @@ var (
 )
 
 var (
-	logLevel = os.Getenv("GCRCLEANER_LOG")
+	logLevel    = os.Getenv("GCRCLEANER_LOG")
+	concurrency = func() int64 {
+		v := os.Getenv("GCRCLEANER_CONCURRENCY")
+		if v == "" {
+			return 20
+		}
+
+		i, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			panic(fmt.Errorf("failed to parse concurrency: %w", err))
+		}
+		return i
+	}()
 )
 
 func main() {
@@ -71,7 +83,6 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		gcrgoogle.Keychain,
 	)
 
-	concurrency := runtime.NumCPU()
 	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, concurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)

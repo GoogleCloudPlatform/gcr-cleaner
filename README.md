@@ -168,6 +168,11 @@ include these debug logs as they are very helpful in finding and fixing any
 bugs.
 
 
+## Concurrency
+
+By default, GCR Cleaner will attempt to perform operations in parallel. You can
+customize the concurrency with `-concurrency` on the CLI or by setting the
+environment variable `GCRCLEANER_CONCURRENCY` on the server. It defaults to 20.
 
 
 [artifact-registry]: https://cloud.google.com/artifact-registry
