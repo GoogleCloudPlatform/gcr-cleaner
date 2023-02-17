@@ -107,6 +107,29 @@ The payload is expected to be JSON with the following fields:
     and create a dedicated service account that has granular permissions on a
     subset of repositories.
 
+## CloudBuild with GCR Cleaner
+
+This is show you how to use GCR Cleaner in CloudBuild. 
+
+> Require permission: `artifactregistry.repositories.deleteArtifacts`
+
+Example: Keep 3 images
+```
+steps:
+  - name: asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli:latest
+    args:
+      - -repo
+      - "asia-docker.pkg.dev/my-project/my-repo/my-image"
+      - -keep
+      - "3"
+      - -tag-filter-any
+      - ".*"
+```
+
+Manual trigger CloudBuild using CLI
+```
+gcloud builds submit --project=my-project-id --config cloudbuild.yaml .
+```
 
 ## Permissions
 
