@@ -1,0 +1,9 @@
+steps:
+  - name: asia-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli:0.11.1
+    args:
+      - -repo
+      - "asia-docker.pkg.dev/my-project/my-repo/my-image"
+      - -keep
+      - "3"
+      - -tag-filter-any
+      - ".*"
