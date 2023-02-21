@@ -7,6 +7,7 @@ deployment option for a detailed guide:
 
 - [Scheduled GitHub Action workflow](docs/deploy-github-actions.md)
 - [Deployed to Cloud Run](docs/deploy-cloud-run.md)
+- [Deploy GCR Cleaner to Cloudbuild](docs/deploy-gcp-cloudbuild.md)
 
 For one-off tasks, you can also run GCR Cleaner locally:
 
