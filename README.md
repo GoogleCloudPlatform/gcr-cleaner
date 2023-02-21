@@ -108,6 +108,7 @@ The payload is expected to be JSON with the following fields:
     and create a dedicated service account that has granular permissions on a
     subset of repositories.
 
+
 ## Permissions
 
 This section lists the minimum required permissions depending on the target
