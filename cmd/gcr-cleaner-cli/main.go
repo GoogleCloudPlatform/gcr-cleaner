@@ -50,6 +50,7 @@ var (
 	gracePtr       = flag.Duration("grace", 0, "Grace period")
 	tagFilterAny   = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
 	tagFilterAll   = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
+	tagLiteralKeep = flag.String("tag-literal-keep", "", "Keep images which have this tag")
 	keepPtr        = flag.Int64("keep", 0, "Minimum to keep")
 	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
 	concurrencyPtr = flag.Int64("concurrency", 20, "Concurrent requests (defaults to number of CPUs)")
@@ -125,6 +126,8 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse tag filter: %w", err)
 	}
+	literalFilter := gcrcleaner.BuildLiteralFilter(*tagLiteralKeep)
+	multiFilter := gcrcleaner.BuildMultiFilter(tagFilter, literalFilter)
 
 	keychain := gcrauthn.NewMultiKeychain(
 		bearerkeychain.New(*tokenPtr),
@@ -175,7 +178,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	var errs []error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *dryRunPtr)
+		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, multiFilter, *dryRunPtr)
 		if err != nil {
 			errs = append(errs, err)
 		}
