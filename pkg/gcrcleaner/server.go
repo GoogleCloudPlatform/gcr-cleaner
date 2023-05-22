@@ -185,7 +185,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	for _, repo := range repos {
 		s.logger.Info("deleting refs for repo", "repo", repo)
 
-		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, tagFilter, p.DryRun)
+		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, tagFilter, p.TagFilterExclude, p.DryRun)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}
@@ -240,6 +240,11 @@ type Payload struct {
 	// The image will not be delete if it has other tags that do not match the
 	// given regular expression.
 	TagFilterAll string `json:"tag_filter_all"`
+
+	// TagFilterExclude instructs the server to exclude tags that were matched from deletion to
+	// be deleted
+	// If true, image will be deleted if the tag filter does NOT match
+	TagFilterExclude bool `json:"tag_filter_exclude"`
 
 	// DryRun instructs the server to not perform actual cleaning. The response
 	// will include repositories that would have been deleted.
