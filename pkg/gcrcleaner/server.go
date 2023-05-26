@@ -191,7 +191,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	for _, repo := range repos {
 		s.logger.Info("deleting refs for repo", "repo", repo)
 
-		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, &defaultDecider, p.DryRun)
+		childrenDeleted, err := s.cleaner.Clean(ctx, repo, p.Keep, &defaultDecider, p.DryRun)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}

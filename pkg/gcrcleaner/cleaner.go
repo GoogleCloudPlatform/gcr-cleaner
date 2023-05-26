@@ -63,7 +63,7 @@ func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, concurrency int64) (
 
 // Clean deletes old images from GCR based on decider and older than "since"
 // and higher than the "keep" amount.
-func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int64, d Decider, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(ctx context.Context, repo string, keep int64, d Decider, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)

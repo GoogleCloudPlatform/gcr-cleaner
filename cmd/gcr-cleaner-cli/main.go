@@ -140,13 +140,6 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		sub = sub * -1
 	}
 	since := time.Now().UTC().Add(sub)
-
-	defaultDecider := gcrcleaner.DefaultDecider{
-		Since:            since,
-		TagFilter:        tagFilter,
-		TagFilterExclude: *tagFilterExcludePtr,
-		Logger:           logger,
-	}
 	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, *concurrencyPtr)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
@@ -177,11 +170,17 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	fmt.Fprintf(stdout, "Deleting refs older than %s on %d repo(s)...\n\n",
 		since.Format(time.RFC3339), len(repos))
 
+	defaultDecider := gcrcleaner.DefaultDecider{
+		Since:            since,
+		TagFilter:        tagFilter,
+		TagFilterExclude: *tagFilterExcludePtr,
+		Logger:           logger,
+	}
 	// Do the deletion.
 	var errs []error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, &defaultDecider, *dryRunPtr)
+		deleted, err := cleaner.Clean(ctx, repo, *keepPtr, &defaultDecider, *dryRunPtr)
 		if err != nil {
 			errs = append(errs, err)
 		}
