@@ -147,7 +147,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		TagFilterExclude: *tagFilterExcludePtr,
 		Logger:           logger,
 	}
-	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, *concurrencyPtr, &defaultDecider)
+	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, *concurrencyPtr)
 	if err != nil {
 		return fmt.Errorf("failed to create cleaner: %w", err)
 	}
@@ -181,7 +181,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	var errs []error
 	for i, repo := range repos {
 		fmt.Fprintf(stdout, "%s\n", repo)
-		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, tagFilter, *tagFilterExcludePtr, *dryRunPtr)
+		deleted, err := cleaner.Clean(ctx, repo, since, *keepPtr, &defaultDecider, *dryRunPtr)
 		if err != nil {
 			errs = append(errs, err)
 		}

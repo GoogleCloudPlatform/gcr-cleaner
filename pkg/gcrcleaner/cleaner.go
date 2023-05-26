@@ -49,23 +49,21 @@ type Cleaner struct {
 	keychain    gcrauthn.Keychain
 	logger      *Logger
 	concurrency int64
-	decider     Decider
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
-func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, concurrency int64, decider Decider) (*Cleaner, error) {
+func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, concurrency int64) (*Cleaner, error) {
 	return &Cleaner{
 		keychain:    keychain,
 		concurrency: concurrency,
 		logger:      logger,
-		decider: decider,
 	}, nil
 }
 
-// Clean deletes old images from GCR that are (un)tagged and older than "since"
+// Clean deletes old images from GCR based on decider and older than "since"
 // and higher than the "keep" amount.
-func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int64, tagFilter TagFilter, tagFilterExclude bool, dryRun bool) ([]string, error) {
+func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep int64, d Decider, dryRun bool) ([]string, error) {
 	gcrrepo, err := gcrname.NewRepository(repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo %s: %w", repo, err)
@@ -138,7 +136,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 			"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
 		// Do nothing if this is not a candidate.
-		ok, err := c.decider.ShouldDelete(m)
+		ok, err := d.ShouldDelete(m)
 		if err != nil {
 			return nil, err
 		}
@@ -332,61 +330,6 @@ func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 	}
 
 	return nil
-}
-
-// shouldDelete returns true if the manifest was created before the given
-// timestamp and either has no tags or has tags that match the given filter.
-func (c *Cleaner) shouldDelete(m *Manifest, since time.Time, tagFilter TagFilter, tagFilterExclude bool) bool {
-	// Immediately exclude images that have been uploaded after the given time.
-	if uploaded := m.Info.Uploaded.UTC(); uploaded.After(since) {
-		c.logger.Debug("should not delete",
-			"repo", m.Repo,
-			"digest", m.Digest,
-			"reason", "too new",
-			"since", since.Format(time.RFC3339),
-			"created", m.Info.Created.Format(time.RFC3339),
-			"uploaded", uploaded.Format(time.RFC3339),
-			"delta", uploaded.Sub(since).String())
-		return false
-	}
-
-	// If there are no tags, it should be deleted.
-	if len(m.Info.Tags) == 0 {
-		c.logger.Debug("should delete",
-			"repo", m.Repo,
-			"digest", m.Digest,
-			"reason", "no tags")
-		return true
-	}
-
-	// If tagged images are allowed and the given filter matches the list of tags,
-	// this is a deletion candidate. The default tag filter is to reject all
-	// strings.
-	if tagFilter.Matches(m.Info.Tags) && !tagFilterExclude {
-		c.logger.Debug("should delete",
-			"repo", m.Repo,
-			"digest", m.Digest,
-			"reason", "matches tag filter",
-			"tags", m.Info.Tags,
-			"tag_filter", tagFilter.Name())
-		return true
-	}
-	if !tagFilter.Matches(m.Info.Tags) && tagFilterExclude {
-		c.logger.Debug("should delete",
-			"repo", m.Repo,
-			"digest", m.Digest,
-			"reason", "matches tag filter",
-			"tags", m.Info.Tags,
-			"tag_filter", tagFilter.Name())
-		return true
-	}
-
-	// If we got this far, it'ts not a viable deletion candidate.
-	c.logger.Debug("should not delete",
-		"repo", m.Repo,
-		"digest", m.Digest,
-		"reason", "no filter matches")
-	return false
 }
 
 // ListChildRepositories lists all child repositores for the given roots. Roots

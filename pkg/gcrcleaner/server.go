@@ -182,10 +182,16 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 
 	// Do the deletion.
 	deleted := make(map[string][]string, len(repos))
+	defaultDecider := DefaultDecider{
+		Since:            since,
+		TagFilter:        tagFilter,
+		TagFilterExclude: p.TagFilterExclude,
+		Logger:           s.logger,
+	}
 	for _, repo := range repos {
 		s.logger.Info("deleting refs for repo", "repo", repo)
 
-		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, tagFilter, p.TagFilterExclude, p.DryRun)
+		childrenDeleted, err := s.cleaner.Clean(ctx, repo, since, p.Keep, &defaultDecider, p.DryRun)
 		if err != nil {
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to clean repo %q: %w", repo, err)
 		}
