@@ -49,15 +49,17 @@ type Cleaner struct {
 	keychain    gcrauthn.Keychain
 	logger      *Logger
 	concurrency int64
+	decider     Decider
 }
 
 // NewCleaner creates a new GCR cleaner with the given token provider and
 // concurrency.
-func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, concurrency int64) (*Cleaner, error) {
+func NewCleaner(keychain gcrauthn.Keychain, logger *Logger, concurrency int64, decider Decider) (*Cleaner, error) {
 	return &Cleaner{
 		keychain:    keychain,
 		concurrency: concurrency,
 		logger:      logger,
+		decider: decider,
 	}, nil
 }
 
@@ -78,9 +80,9 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 		return nil, fmt.Errorf("failed to list tags for repo %s: %w", repo, err)
 	}
 
-	var manifests = make([]*manifest, 0, len(tags.Manifests))
+	var manifests = make([]*Manifest, 0, len(tags.Manifests))
 	for k, m := range tags.Manifests {
-		manifests = append(manifests, &manifest{repo, k, m})
+		manifests = append(manifests, &Manifest{repo, k, m})
 	}
 
 	// Sort manifests. If either of the containers were created before Docker even
@@ -136,7 +138,11 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 			"uploaded", m.Info.Uploaded.Format(time.RFC3339))
 
 		// Do nothing if this is not a candidate.
-		if !c.shouldDelete(m, since, tagFilter, tagFilterExclude) {
+		ok, err := c.decider.ShouldDelete(m)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
 			c.logger.Debug("skipping deletion because of filters",
 				"repo", repo,
 				"digest", m.Digest,
@@ -309,7 +315,7 @@ func (c *Cleaner) Clean(ctx context.Context, repo string, since time.Time, keep 
 	return deleted, nil
 }
 
-type manifest struct {
+type Manifest struct {
 	Repo   string
 	Digest string
 	Info   gcrgoogle.ManifestInfo
@@ -330,7 +336,7 @@ func (c *Cleaner) deleteOne(ctx context.Context, ref gcrname.Reference) error {
 
 // shouldDelete returns true if the manifest was created before the given
 // timestamp and either has no tags or has tags that match the given filter.
-func (c *Cleaner) shouldDelete(m *manifest, since time.Time, tagFilter TagFilter, tagFilterExclude bool) bool {
+func (c *Cleaner) shouldDelete(m *Manifest, since time.Time, tagFilter TagFilter, tagFilterExclude bool) bool {
 	// Immediately exclude images that have been uploaded after the given time.
 	if uploaded := m.Info.Uploaded.UTC(); uploaded.After(since) {
 		c.logger.Debug("should not delete",

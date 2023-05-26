@@ -133,11 +133,6 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 		gcrgoogle.Keychain,
 	)
 
-	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, *concurrencyPtr)
-	if err != nil {
-		return fmt.Errorf("failed to create cleaner: %w", err)
-	}
-
 	// Convert duration to a negative value, since we're about to "add" it to the
 	// since time.
 	sub := time.Duration(*gracePtr)
@@ -146,6 +141,16 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	}
 	since := time.Now().UTC().Add(sub)
 
+	defaultDecider := gcrcleaner.DefaultDecider{
+		Since:            since,
+		TagFilter:        tagFilter,
+		TagFilterExclude: *tagFilterExcludePtr,
+		Logger:           logger,
+	}
+	cleaner, err := gcrcleaner.NewCleaner(keychain, logger, *concurrencyPtr, &defaultDecider)
+	if err != nil {
+		return fmt.Errorf("failed to create cleaner: %w", err)
+	}
 	// Gather the repositories.
 	if *recursivePtr {
 		logger.Debug("gathering child repositories recursively")
