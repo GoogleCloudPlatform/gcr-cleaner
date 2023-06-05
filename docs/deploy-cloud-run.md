@@ -1,6 +1,6 @@
 # Deploy GCR Cleaner to Cloud Run
 
-This document describes how to deploy GCR Cleaner to Cloud Run [Cloud
+This document describes how to deploy GCR Cleaner to [Cloud
 Run][cloud-run] and invoke it via [Cloud Scheduler][cloud-scheduler]. There is
 also a community-supported [Terraform module for gcr-cleaner][tf-module].
 
