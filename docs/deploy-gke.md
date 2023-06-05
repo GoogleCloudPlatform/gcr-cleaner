@@ -56,44 +56,44 @@ This document describes how to deploy GCR Cleaner to [Kubernetes Engine][kuberne
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-   name: gcr-cleaner
-   namespace: ${NAMESPACE}
-   annotations:
-      iam.gke.io/gcp-service-account: gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com
+  name: gcr-cleaner
+  namespace: ${NAMESPACE}
+  annotations:
+    iam.gke.io/gcp-service-account: gcr-cleaner@${PROJECT_ID}.iam.gserviceaccount.com
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-   name: gcr-cleaner
-   namespace: ${NAMESPACE}
+  name: gcr-cleaner
+  namespace: ${NAMESPACE}
 spec:
-   concurrencyPolicy: Forbid
-   schedule: "0 0 */1 * *"  # every day
-   jobTemplate:
-      spec:
-         template:
-            metadata:
-               labels:
-                  app: gcr-cleaner
-            spec:
-               containers:
-                  - name: gcr-cleaner
-                    image: "us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli"
-                    resources:
-                       requests:
-                          memory: "128Mi"
-                          cpu: "250m"
-                       limits:
-                          memory: "256Mi"
-                    args:
-                       - -repo=us-central1-docker.pkg.dev/my-project/my-repo
-                       - -grace=720h # 30 days
-                       - -recursive
-                       - -tag-filter-any=.*
-               restartPolicy: Never
-               serviceAccountName: gcr-cleaner
-               nodeSelector:
-                  iam.gke.io/gke-metadata-server-enabled: "true"
+  concurrencyPolicy: Forbid
+  schedule: "0 0 */1 * *"  # every day
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: gcr-cleaner
+        spec:
+          containers:
+          - name: gcr-cleaner
+            image: "us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli"
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "250m"
+              limits:
+                memory: "256Mi"
+            args:
+            - -repo=us-central1-docker.pkg.dev/my-project/my-repo
+            - -grace=720h # 30 days
+            - -recursive
+            - -tag-filter-any=.*
+            restartPolicy: Never
+            serviceAccountName: gcr-cleaner
+            nodeSelector:
+              iam.gke.io/gke-metadata-server-enabled: "true"
 ```
 
 
