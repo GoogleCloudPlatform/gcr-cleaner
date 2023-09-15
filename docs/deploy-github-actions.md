@@ -22,7 +22,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     steps:
       # configure based on your registry
-      - uses: 'docker/login-action@v2'
+      - uses: 'docker/login-action@v3'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}

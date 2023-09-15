@@ -13,29 +13,29 @@ jobs:
   release:
     runs-on: 'ubuntu-latest'
     steps:
-      - uses: 'docker/setup-qemu-action@v2'
+      - uses: 'docker/setup-qemu-action@v3'
 
-      - uses: 'actions/checkout@v3'
+      - uses: 'actions/checkout@v4'
         with:
           fetch-depth: 0
 
-      - uses: 'actions/setup-go@v3'
+      - uses: 'actions/setup-go@v4'
         with:
           go-version: '1.19'
 
-      - uses: 'docker/login-action@v2'
+      - uses: 'docker/login-action@v3'
         with:
           registry: 'asia-docker.pkg.dev'
           username: '_json_key'
           password: '${{ secrets.GOOGLE_CREDENTIALS }}'
 
-      - uses: 'docker/login-action@v2'
+      - uses: 'docker/login-action@v3'
         with:
           registry: 'europe-docker.pkg.dev'
           username: '_json_key'
           password: '${{ secrets.GOOGLE_CREDENTIALS }}'
 
-      - uses: 'docker/login-action@v2'
+      - uses: 'docker/login-action@v3'
         with:
           registry: 'us-docker.pkg.dev'
           username: '_json_key'
@@ -47,7 +47,7 @@ jobs:
           gpg_private_key: '${{ secrets.GPG_PRIVATE_KEY }}'
           passphrase: '${{ secrets.GPG_PASSPHRASE }}'
 
-      - uses: 'goreleaser/goreleaser-action@v3'
+      - uses: 'goreleaser/goreleaser-action@v5'
         with:
           version: 'latest'
           args: 'release --rm-dist'
