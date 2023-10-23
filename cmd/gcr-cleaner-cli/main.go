@@ -50,6 +50,7 @@ var (
 	gracePtr       = flag.Duration("grace", 0, "Grace period")
 	tagFilterAny   = flag.String("tag-filter-any", "", "Delete images where any tag matches this regular expression")
 	tagFilterAll   = flag.String("tag-filter-all", "", "Delete images where all tags match this regular expression")
+	tagKeepAny     = flag.String("tag-keep-any", "", "Keep images where any tag matches this regular expression")
 	keepPtr        = flag.Int64("keep", 0, "Minimum to keep")
 	dryRunPtr      = flag.Bool("dry-run", false, "Do a noop on delete api call")
 	concurrencyPtr = flag.Int64("concurrency", 20, "Concurrent requests (defaults to number of CPUs)")
@@ -121,7 +122,7 @@ func realMain(ctx context.Context, logger *gcrcleaner.Logger) error {
 	}
 	sort.Strings(repos)
 
-	tagFilter, err := gcrcleaner.BuildTagFilter(*tagFilterAny, *tagFilterAll)
+	tagFilter, err := gcrcleaner.BuildTagFilter(*tagFilterAny, *tagFilterAll, *tagKeepAny)
 	if err != nil {
 		return fmt.Errorf("failed to parse tag filter: %w", err)
 	}

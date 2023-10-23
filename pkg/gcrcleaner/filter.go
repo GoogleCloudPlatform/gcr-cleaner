@@ -29,9 +29,9 @@ type TagFilter interface {
 // BuildTagFilter builds and compiles a new tag filter for the given inputs. All
 // inputs are strings to be compiled to regular expressions and are mutually
 // exclusive.
-func BuildTagFilter(any, all string) (TagFilter, error) {
+func BuildTagFilter(any, all, keep string) (TagFilter, error) {
 	// Ensure only one tag filter type is given.
-	if any != "" && all != "" {
+	if any != "" && all != "" && keep != "" {
 		return nil, fmt.Errorf("only one tag filter type may be specified")
 	}
 
@@ -48,6 +48,12 @@ func BuildTagFilter(any, all string) (TagFilter, error) {
 			return nil, fmt.Errorf("failed to compile tag_filter_all regular expression %q: %w", all, err)
 		}
 		return &TagFilterAll{re}, nil
+	case keep != "":
+		re, err := regexp.Compile(keep)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile tag_keep_any regular expression %q: %w", all, err)
+		}
+		return &TagKeepAny{re}, nil
 	default:
 		// If no filters were provided, return the null filter which just returns
 		// false for all matches.
@@ -113,3 +119,27 @@ func (f *TagFilterAll) Matches(tags []string) bool {
 	}
 	return true
 }
+
+// TagKeepAny filters based on the entire list. If any tag in the list
+// matches, it returns false. If no tags match, it returns true.
+type TagKeepAny struct {
+	re *regexp.Regexp
+}
+
+func (f *TagKeepAny) Matches(tags []string) bool {
+	if f.re == nil {
+		return false
+	}
+	for _, t := range tags {
+		if f.re.MatchString(t) {
+			return false
+		}
+	}
+	return true
+}
+
+func (f *TagKeepAny) Name() string {
+	return fmt.Sprintf("keep(%s)", f.re.String())
+}
+
+var _ TagFilter = (*TagKeepAny)(nil)

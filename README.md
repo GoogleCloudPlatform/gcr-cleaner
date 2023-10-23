@@ -82,6 +82,11 @@ The payload is expected to be JSON with the following fields:
   other tags that do not match the given regular expression. The regular
   expressions are parsed according to the [Go regexp package][go-re].
 
+- `tag_keep_any` - If specified, any image where **any tags** match this given
+  regular expression will be kept. The image will not be delete if it has
+  other tags that do not match the given regular expression. The regular
+  expressions are parsed according to the [Go regexp package][go-re].
+
 - `dry_run` - If set to true, will not delete anything and outputs what would
   have been deleted.
 

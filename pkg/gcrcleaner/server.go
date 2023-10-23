@@ -148,7 +148,7 @@ func (s *Server) clean(ctx context.Context, r io.ReadCloser) (map[string][]strin
 	}
 
 	since := time.Now().UTC().Add(sub)
-	tagFilter, err := BuildTagFilter(p.TagFilterAny, p.TagFilterAll)
+	tagFilter, err := BuildTagFilter(p.TagFilterAny, p.TagFilterAll, p.TagKeepAny)
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to build tag filter: %w", err)
 	}
@@ -240,6 +240,12 @@ type Payload struct {
 	// The image will not be delete if it has other tags that do not match the
 	// given regular expression.
 	TagFilterAll string `json:"tag_filter_all"`
+
+	// TagKeepAny is the tags pattern to be kept. If given, any
+	// image with at least one tag that matches this given regular expression will
+	// be kept. The image will be kept even if it has other tags that do not
+	// match the given regular expression.
+	TagKeepAny string `json:"tag_keep_any"`
 
 	// DryRun instructs the server to not perform actual cleaning. The response
 	// will include repositories that would have been deleted.

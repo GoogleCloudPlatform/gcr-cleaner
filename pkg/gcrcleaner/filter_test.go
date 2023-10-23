@@ -24,34 +24,66 @@ func TestBuildTagFilter(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name     string
-		any, all string
-		err      bool
-		exp      reflect.Type
+		name           string
+		any, all, keep string
+		err            bool
+		exp            reflect.Type
 	}{
 		{
 			name: "empty",
 			any:  "",
 			all:  "",
+			keep: "",
 			exp:  reflect.TypeOf(&TagFilterNull{}),
+		},
+		{
+			name: "any_all_keep",
+			any:  "b",
+			all:  "c",
+			keep: "d",
+			err:  true,
 		},
 		{
 			name: "any_all",
 			any:  "b",
 			all:  "c",
+			keep: "",
+			err:  true,
+		},
+		{
+			name: "any_keep",
+			any:  "a",
+			all:  "",
+			keep: "b",
+			err:  true,
+		},
+		{
+			name: "all_keep",
+			any:  "",
+			all:  "a",
+			keep: "b",
 			err:  true,
 		},
 		{
 			name: "any",
 			any:  "a",
 			all:  "",
+			keep: "",
 			exp:  reflect.TypeOf(&TagFilterAny{}),
 		},
 		{
 			name: "all",
 			any:  "",
 			all:  "a",
+			keep: "",
 			exp:  reflect.TypeOf(&TagFilterAll{}),
+		},
+		{
+			name: "keep",
+			any:  "",
+			all:  "",
+			keep: "a",
+			exp:  reflect.TypeOf(&TagKeepAny{}),
 		},
 	}
 
@@ -61,7 +93,7 @@ func TestBuildTagFilter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, err := BuildTagFilter(tc.any, tc.all)
+			f, err := BuildTagFilter(tc.any, tc.all, tc.keep)
 			if (err != nil) != tc.err {
 				t.Fatal(err)
 			}
@@ -175,6 +207,67 @@ func TestTagFilterAll_Matches(t *testing.T) {
 			t.Parallel()
 
 			f := &TagFilterAll{re: tc.re}
+			if got, want := f.Matches(tc.tags), tc.exp; got != want {
+				t.Errorf("expected %q matches %q to be %t", tc.re, tc.tags, want)
+			}
+		})
+	}
+}
+
+func TestTagKeepAny_Matches(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		re   *regexp.Regexp
+		tags []string
+		exp  bool
+	}{
+		{
+			name: "empty_re",
+			re:   nil,
+			tags: nil,
+			exp:  false,
+		},
+		{
+			name: "empty_tags",
+			re:   regexp.MustCompile(`.*`),
+			tags: nil,
+			exp:  false,
+		},
+		{
+			name: "matches_first",
+			re:   regexp.MustCompile(`^tag1$`),
+			tags: []string{"tag1", "tag2", "tag3"},
+			exp:  false,
+		},
+		{
+			name: "matches_middle",
+			re:   regexp.MustCompile(`^tag2$`),
+			tags: []string{"tag1", "tag2", "tag3"},
+			exp:  false,
+		},
+		{
+			name: "matches_end",
+			re:   regexp.MustCompile(`^tag3$`),
+			tags: []string{"tag1", "tag2", "tag3"},
+			exp:  false,
+		},
+		{
+			name: "does_not_match_any",
+			re:   regexp.MustCompile(`^tag4$`),
+			tags: []string{"tag1", "tag2", "tag3"},
+			exp:  true,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := &TagKeepAny{re: tc.re}
 			if got, want := f.Matches(tc.tags), tc.exp; got != want {
 				t.Errorf("expected %q matches %q to be %t", tc.re, tc.tags, want)
 			}
