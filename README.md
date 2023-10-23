@@ -1,5 +1,7 @@
 # GCR Cleaner
 
+:warning: **New projects should use [Google Artifact Registry cleanup policies](https://cloud.google.com/artifact-registry/docs/repositories/cleanup-policy) instead!** Inspired by this tool, cleanup policies are built directly into Artifact Registry and require zero management overhead.
+
 GCR Cleaner deletes old container images in [Docker Hub][docker-hub], [Container Registry][container-registry], [Artifact Registry][artifact-registry], or any Docker v2 registries. This can help reduce storage costs, especially in CI/CD environments where images are created and pushed frequently.
 
 There are multiple deployment options for GCR Cleaner. Click on your preferred
