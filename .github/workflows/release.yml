@@ -50,7 +50,7 @@ jobs:
       - uses: 'goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8' # ratchet:goreleaser/goreleaser-action@v5
         with:
           version: 'latest'
-          args: 'release --rm-dist'
+          args: 'release --clean'
         env:
           GPG_FINGERPRINT: '${{ steps.import_gpg.outputs.fingerprint }}'
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
