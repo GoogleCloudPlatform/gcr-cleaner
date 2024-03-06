@@ -2,66 +2,66 @@ name: 'Bug report'
 description: 'File a bug report'
 labels: ['bug']
 body:
-- type: 'markdown'
-  attributes:
-    value: |-
-      Thank you for filing an bug. Please complete the form below so we can triage, reproduce, and fix your issue.
+  - type: 'markdown'
+    attributes:
+      value: |-
+        Thank you for filing an bug. Please complete the form below so we can triage, reproduce, and fix your issue.
 
-- id: 'tldr'
-  type: 'textarea'
-  attributes:
-    label: 'TL;DR'
-    description: 'Describe the bug in 1-2 sentences.'
-  validations:
-    required: true
+  - id: 'tldr'
+    type: 'textarea'
+    attributes:
+      label: 'TL;DR'
+      description: 'Describe the bug in 1-2 sentences.'
+    validations:
+      required: true
 
-- id: 'expected_behavior'
-  type: 'textarea'
-  attributes:
-    label: 'Expected behavior'
-    description: 'What did you expect to happen?'
+  - id: 'expected_behavior'
+    type: 'textarea'
+    attributes:
+      label: 'Expected behavior'
+      description: 'What did you expect to happen?'
 
-- id: 'observed_behavior'
-  type: 'textarea'
-  attributes:
-    label: 'Observed behavior'
-    description: 'What happened instead?'
+  - id: 'observed_behavior'
+    type: 'textarea'
+    attributes:
+      label: 'Observed behavior'
+      description: 'What happened instead?'
 
-- id: 'log_output'
-  type: 'textarea'
-  attributes:
-    label: 'Debug log output'
-    description: 'Paste the debug log output here. See https://github.com/GoogleCloudPlatform/gcr-cleaner#Debugging for more information.'
-    render: 'text'
-    
-- id: 'mode'
-  type: 'dropdown'
-  attributes:
-    label: 'How are you running gcr-cleaner?'
-    options:
-      - 'CLI'
-      - 'Server'
-  validations:
-    required: true
+  - id: 'log_output'
+    type: 'textarea'
+    attributes:
+      label: 'Debug log output'
+      description: 'Paste the debug log output here. See https://github.com/GoogleCloudPlatform/gcr-cleaner#Debugging for more information.'
+      render: 'text'
+  - id: 'mode'
+    type: 'dropdown'
+    attributes:
+      label: 'How are you running gcr-cleaner?'
+      options:
+        - 'CLI'
+        - 'Server'
+    validations:
+      required: true
+  - id: 'version'
 
-- id: 'version'
-  type: 'input'
-  attributes:
-    label: 'gcr-cleaner version'
-    description: 'Version of gcr-cleaner. If using the CLI, run `gcr-cleaner -v`. If using the server, check the debug logs or provide the container SHA'
-  validations:
-    required: true
+    type: 'input'
+    attributes:
+      label: 'gcr-cleaner version'
+      description: 'Version of gcr-cleaner. If using the CLI, run `gcr-cleaner -v`. If using the server, check the debug logs or provide the container SHA'
+    validations:
+      required: true
+  - id: 'environment'
 
-- id: 'environment'
-  type: 'textarea'
-  attributes:
-    label: 'Environment'
-    description: 'Provide as much information about your environment as possible. If you are using gcr-cleaner as a CLI, include local operating system information. If you are running gcr-cleaner as a service, describe the deployment topology, permissions, and runtime.'
-  validations:
-    required: true
+    type: 'textarea'
+    attributes:
+      label: 'Environment'
+      description: 'Provide as much information about your environment as possible. If you are using gcr-cleaner as a CLI, include local operating system information. If you are running gcr-cleaner as a service, describe the deployment topology, permissions, and runtime.'
+    validations:
+      required: true
+  - id: 'additional'
 
-- id: 'additional'
-  type: 'textarea'
-  attributes:
-    label: 'Additional information'
+    type: 'textarea'
+    attributes:
+      label: 'Additional information'
+      description: 'Is there anything else you think we should know?'
     description: 'Is there anything else you think we should know?'
