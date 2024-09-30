@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM alpine AS builder
+FROM --platform=$BUILDPLATFORM alpine:latest AS builder
 
 RUN apk --no-cache --update add ca-certificates && \
   update-ca-certificates

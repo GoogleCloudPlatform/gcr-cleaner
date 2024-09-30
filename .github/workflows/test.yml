@@ -18,10 +18,17 @@ jobs:
     runs-on: 'ubuntu-latest'
 
     steps:
-      - uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
+      - uses: 'actions/checkout@v4'
 
-      - uses: 'actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491' # ratchet:actions/setup-go@v5
+      - uses: 'actions/setup-go@v5'
         with:
           go-version-file: 'go.mod'
 
-      - run: 'make test'
+      - name: 'Run tests'
+        run: |-
+          go test \
+            -count=1 \
+            -race \
+            -shuffle=on \
+            -timeout='10m' \
+            ./...
